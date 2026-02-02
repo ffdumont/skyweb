@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>LFPT - LFPN VFR</name>
+    <description>Route VFR Pontoise - Toussus-le-Noble</description>
+    <Placemark>
+      <name>LFPT</name>
+      <Point><coordinates>2.0353,49.0964,100</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>VDP N</name>
+      <Point><coordinates>2.1250,48.9500,600</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>VB</name>
+      <Point><coordinates>2.0800,48.8600,750</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>VDP S</name>
+      <Point><coordinates>2.1000,48.7900,600</coordinates></Point>
+    </Placemark>
+    <Placemark>
+      <name>LFPN</name>
+      <Point><coordinates>2.1142,48.7519,150</coordinates></Point>
+    </Placemark>
+  </Document>
+</kml>
