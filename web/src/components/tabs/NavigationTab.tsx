@@ -377,10 +377,10 @@ function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: stri
       // Skip if we already have a frequency for this callsign
       if (seenCallsigns.has(service.callsign)) continue;
 
-      // Find the first VHF frequency (118-137 MHz range)
+      // Find the first VHF frequency (118-137 MHz range), excluding 121.5 (emergency)
       const vhfFreq = service.frequencies.find((f) => {
         const mhz = parseFloat(f.frequency_mhz);
-        return mhz >= 118 && mhz <= 137;
+        return mhz >= 118 && mhz <= 137 && Math.abs(mhz - 121.5) > 0.01;
       });
 
       if (vhfFreq) {

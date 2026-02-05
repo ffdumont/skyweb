@@ -321,6 +321,7 @@ class AirspaceQueryService:
                     FROM Service s
                     LEFT JOIN Frequence f ON f.ServiceRef = s.pk
                     WHERE s.EspaceRef = ?
+                    ORDER BY f.pk
                     """,
                     (espace_pk,),
                 ).fetchall()
@@ -348,6 +349,7 @@ class AirspaceQueryService:
                     LEFT JOIN Frequence f ON f.ServiceRef = s.pk
                     WHERE UPPER(s.IndicLieu) = UPPER(?)
                       AND s.IndicService = ?
+                    ORDER BY f.pk
                     """,
                     (espace_nom, service_type),
                 ).fetchall()
@@ -365,6 +367,7 @@ class AirspaceQueryService:
                         LEFT JOIN Frequence f ON f.ServiceRef = s.pk
                         WHERE UPPER(s.IndicLieu) = UPPER(?)
                           AND s.IndicService = ?
+                        ORDER BY f.pk
                         """,
                         (parent_name, service_type),
                     ).fetchall()
