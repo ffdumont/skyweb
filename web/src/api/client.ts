@@ -56,6 +56,12 @@ export async function uploadKml(file: File): Promise<UploadRouteResponse> {
   });
 }
 
+export async function loadDemoRoute(): Promise<UploadRouteResponse> {
+  return apiFetch<UploadRouteResponse>("/api/routes/demo", {
+    method: "POST",
+  });
+}
+
 export async function getGroundProfile(routeId: string): Promise<GroundPoint[]> {
   return apiFetch<GroundPoint[]>(`/api/routes/${routeId}/ground-profile`);
 }

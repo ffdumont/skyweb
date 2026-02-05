@@ -17,10 +17,13 @@ interface AuthState {
   loading: boolean;
   error: string | null;
   initialized: boolean;
+  demoMode: boolean;
 
   initialize: () => () => void;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  enterDemoMode: () => void;
+  exitDemoMode: () => void;
   clearError: () => void;
 }
 
@@ -29,6 +32,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   loading: false,
   error: null,
   initialized: false,
+  demoMode: false,
 
   initialize: () => {
     if (!isFirebaseConfigured()) {
@@ -72,11 +76,19 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ loading: true, error: null });
     try {
       await firebaseSignOut();
-      set({ user: null, loading: false });
+      set({ user: null, loading: false, demoMode: false });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erreur de déconnexion";
       set({ loading: false, error: message });
     }
+  },
+
+  enterDemoMode: () => {
+    set({ demoMode: true, initialized: true, user: null, error: null });
+  },
+
+  exitDemoMode: () => {
+    set({ demoMode: false });
   },
 
   clearError: () => set({ error: null }),

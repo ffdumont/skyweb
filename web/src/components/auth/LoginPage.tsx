@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useAuthStore } from "../../stores/authStore";
+import { useDossierStore } from "../../stores/dossierStore";
 
 const containerStyle: React.CSSProperties = {
   display: "flex",
@@ -91,14 +92,54 @@ const errorStyle: React.CSSProperties = {
   marginBottom: 8,
 };
 
+const dividerStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 12,
+  margin: "20px 0",
+  color: "#999",
+  fontSize: 13,
+};
+
+const lineStyle: React.CSSProperties = {
+  flex: 1,
+  height: 1,
+  background: "#ddd",
+};
+
+const demoButtonStyle: React.CSSProperties = {
+  width: "100%",
+  padding: "14px 20px",
+  fontSize: 15,
+  fontWeight: 600,
+  color: "#1a1a2e",
+  background: "#f0f0f5",
+  border: "2px solid #1a1a2e",
+  borderRadius: 8,
+  cursor: "pointer",
+  transition: "background 0.2s",
+};
+
+const demoButtonDisabledStyle: React.CSSProperties = {
+  ...demoButtonStyle,
+  color: "#999",
+  borderColor: "#ccc",
+  cursor: "not-allowed",
+};
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [demoLoading, setDemoLoading] = useState(false);
 
   const signIn = useAuthStore((s) => s.signIn);
   const loading = useAuthStore((s) => s.loading);
   const error = useAuthStore((s) => s.error);
   const clearError = useAuthStore((s) => s.clearError);
+  const enterDemoMode = useAuthStore((s) => s.enterDemoMode);
+
+  const startWizard = useDossierStore((s) => s.startWizard);
+  const loadDemoRoute = useDossierStore((s) => s.loadDemoRoute);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -108,6 +149,21 @@ export default function LoginPage() {
       await signIn(email, password);
     } catch {
       // Error is already set in the store
+    }
+  };
+
+  const handleDemo = async () => {
+    setDemoLoading(true);
+    try {
+      // Enter demo mode (bypasses auth)
+      enterDemoMode();
+      // Start wizard and load demo route
+      startWizard();
+      await loadDemoRoute();
+    } catch {
+      // Error handled in loadDemoRoute
+    } finally {
+      setDemoLoading(false);
     }
   };
 
@@ -166,6 +222,21 @@ export default function LoginPage() {
             {loading ? "Connexion..." : "Se connecter"}
           </button>
         </form>
+
+        <div style={dividerStyle}>
+          <div style={lineStyle} />
+          <span>ou</span>
+          <div style={lineStyle} />
+        </div>
+
+        <button
+          type="button"
+          onClick={handleDemo}
+          style={demoLoading ? demoButtonDisabledStyle : demoButtonStyle}
+          disabled={demoLoading}
+        >
+          {demoLoading ? "Chargement..." : "Essayer la démo"}
+        </button>
       </div>
     </div>
   );

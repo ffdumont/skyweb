@@ -89,6 +89,7 @@ interface DossierState {
   startWizard: () => void;
   cancelWizard: () => void;
   uploadKml: (file: File) => Promise<void>;
+  loadDemoRoute: () => Promise<void>;
   validateRoute: () => void;
   goBackToUpload: () => void;
   goBackToReview: () => void;
@@ -157,6 +158,39 @@ export const useDossierStore = create<DossierState>((set, get) => ({
           ...s.wizard,
           uploading: false,
           error: err instanceof Error ? err.message : "Erreur lors de l'upload",
+        },
+      }));
+    }
+  },
+
+  loadDemoRoute: async () => {
+    set((s) => ({ wizard: { ...s.wizard, uploading: true, error: null } }));
+    try {
+      const route = await api.loadDemoRoute();
+      // Fetch ground profile in parallel with client-side segment computation
+      const profilePromise = api.getGroundProfile(route.id).catch(() => null);
+      const waypoints = coordsToWaypointData(route.coordinates);
+      const segments = computeSegments(route.coordinates);
+      const groundProfile = await profilePromise;
+
+      set((s) => ({
+        wizard: {
+          ...s.wizard,
+          step: 2,
+          uploading: false,
+          uploadedRoute: route,
+          computedWaypoints: waypoints,
+          computedSegments: segments,
+          groundProfile: groundProfile as GroundPoint[] | null,
+          dossierName: route.name,
+        },
+      }));
+    } catch (err) {
+      set((s) => ({
+        wizard: {
+          ...s.wizard,
+          uploading: false,
+          error: err instanceof Error ? err.message : "Erreur lors du chargement de la démo",
         },
       }));
     }

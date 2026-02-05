@@ -216,6 +216,110 @@ async def upload_kml(
     return data
 
 
+DEMO_KML_PATH = Path(r"C:\Users\franc\dev\skytools\skypath\data\routes\LFXU-LFFU-2025-09-25-14-51-39.kml")
+
+
+@router.post("/demo", status_code=201)
+async def load_demo_route(
+    route_repo: RouteRepository = Depends(get_route_repo),
+    wp_repo: WaypointRepository = Depends(get_waypoint_repo),
+) -> dict:
+    """Load the hardcoded demo route KML file.
+
+    This endpoint bypasses authentication and uses a fixed KML file for demo purposes.
+    """
+    if not DEMO_KML_PATH.exists():
+        raise HTTPException(status_code=404, detail=f"Demo KML file not found: {DEMO_KML_PATH}")
+
+    content = DEMO_KML_PATH.read_bytes()
+
+    # Parse KML
+    try:
+        from core.adapters.kml_parser import parse_kml_waypoints
+        raw_wps = parse_kml_waypoints(DEMO_KML_PATH)
+        root = ET.fromstring(content)
+        doc_el = root.find(f"{KML_NS}Document")
+        name_el = doc_el.find(f"{KML_NS}name") if doc_el is not None else None
+        route_name = name_el.text.strip() if name_el is not None and name_el.text else DEMO_KML_PATH.stem
+        coords_list = [
+            {"name": w["name"], "longitude": w["longitude"], "latitude": w["latitude"], "altitude_m": w.get("altitude_m", 0)}
+            for w in raw_wps
+        ]
+    except (ValueError, KeyError):
+        route_name, coords_list = _parse_linestring_kml(content)
+
+    if len(coords_list) < 2:
+        raise HTTPException(status_code=400, detail="Demo KML must contain at least 2 points")
+
+    for i, c in enumerate(coords_list):
+        if not c.get("name"):
+            c["name"] = f"WPT{i + 1}"
+
+    # Get ground elevations
+    dep = coords_list[0]
+    arr = coords_list[-1]
+    elevations = await get_ground_elevations([
+        (dep["latitude"], dep["longitude"]),
+        (arr["latitude"], arr["longitude"]),
+    ])
+    dep_ground_ft = elevations[0]
+    arr_ground_ft = elevations[1]
+
+    # Apply route correction
+    corrected = correct_route(
+        coords_list, dep_ground_ft=dep_ground_ft, arr_ground_ft=arr_ground_ft
+    )
+
+    # Build waypoint objects
+    waypoint_objects = []
+    for cw in corrected:
+        wp = UserWaypoint(
+            name=cw.name,
+            latitude=cw.latitude,
+            longitude=cw.longitude,
+            location_type=LocationType.GPS_POINT,
+            source=WaypointSource.ROUTE_CORRECTION if cw.is_intermediate else WaypointSource.KML_IMPORT,
+        )
+        waypoint_objects.append(wp)
+
+    # Build route refs and legs
+    refs = [
+        RouteWaypointRef(
+            waypoint_id=wp.id,
+            sequence_order=i + 1,
+            role=(
+                WaypointRole.DEPARTURE if i == 0
+                else WaypointRole.ARRIVAL if i == len(waypoint_objects) - 1
+                else WaypointRole.ENROUTE
+            ),
+        )
+        for i, wp in enumerate(waypoint_objects)
+    ]
+    legs = []
+    for i in range(len(waypoint_objects) - 1):
+        alt_ft = max(corrected[i + 1].altitude_ft, 0)
+        legs.append(RouteLeg(from_seq=i + 1, to_seq=i + 2, planned_altitude_ft=alt_ft))
+    route = Route(name=route_name, waypoints=refs, legs=legs)
+
+    # Save with demo user ID
+    demo_user_id = "demo"
+    route_id = await route_repo.save_with_waypoints(demo_user_id, route, waypoint_objects)
+
+    data = route.to_firestore()
+    data["id"] = route_id
+    data["coordinates"] = [
+        {
+            "lat": cw.latitude,
+            "lon": cw.longitude,
+            "name": cw.name,
+            "altitude_ft": cw.altitude_ft,
+            "is_intermediate": cw.is_intermediate,
+        }
+        for cw in corrected
+    ]
+    return data
+
+
 @router.get("/{route_id}")
 async def get_route(
     route_id: str,

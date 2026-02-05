@@ -111,6 +111,7 @@ export default function App() {
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
   const initialize = useAuthStore((s) => s.initialize);
+  const demoMode = useAuthStore((s) => s.demoMode);
 
   // Initialize auth on mount
   useEffect(() => {
@@ -137,8 +138,8 @@ export default function App() {
     );
   }
 
-  // Show login page if Firebase is configured and user is not authenticated
-  if (isFirebaseConfigured() && !user) {
+  // Show login page if Firebase is configured and user is not authenticated (unless in demo mode)
+  if (isFirebaseConfigured() && !user && !demoMode) {
     return <LoginPage />;
   }
 
