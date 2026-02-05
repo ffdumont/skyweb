@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING
 
 from fastapi import Depends, Request
 
-from core.api.auth import UserClaims, verify_firebase_token
+from core.api.auth import UserClaims, verify_firebase_token, verify_firebase_token_or_demo
 from core.persistence.repositories.aircraft_repo import AircraftRepository
 from core.persistence.repositories.community_repo import CommunityRepository
 from core.persistence.repositories.dossier_repo import DossierRepository
@@ -29,6 +29,13 @@ def get_current_user(
     claims: UserClaims = Depends(verify_firebase_token),
 ) -> str:
     """Return the authenticated user ID."""
+    return claims.uid
+
+
+def get_current_user_or_demo(
+    claims: UserClaims = Depends(verify_firebase_token_or_demo),
+) -> str:
+    """Return the user ID, allowing demo mode with X-Demo-Mode header."""
     return claims.uid
 
 

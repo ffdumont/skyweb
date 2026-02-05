@@ -17,6 +17,7 @@ import type {
   WeatherModel,
 } from "./types";
 import { getIdToken, isFirebaseConfigured } from "../lib/firebase";
+import { useAuthStore } from "../stores/authStore";
 
 class ApiError extends Error {
   constructor(
@@ -31,8 +32,14 @@ class ApiError extends Error {
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
   const headers = new Headers(options?.headers);
 
+  // Check if in demo mode
+  const demoMode = useAuthStore.getState().demoMode;
+  if (demoMode) {
+    headers.set("X-Demo-Mode", "true");
+  }
+
   // Add auth token if Firebase is configured and user is authenticated
-  if (isFirebaseConfigured()) {
+  if (isFirebaseConfigured() && !demoMode) {
     const token = await getIdToken();
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);

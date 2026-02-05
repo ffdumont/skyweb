@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Response
 
-from core.api.deps import get_current_user, get_dossier_repo
+from core.api.deps import get_current_user, get_current_user_or_demo, get_dossier_repo
 from core.contracts.enums import DossierStatus, SectionCompletion, SectionId
 from core.contracts.dossier import Dossier
 from core.contracts.weather import WeatherSimulation
@@ -29,7 +29,7 @@ async def list_dossiers(
 @router.post("", status_code=201)
 async def create_dossier(
     dossier: Dossier,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(get_current_user_or_demo),
     repo: DossierRepository = Depends(get_dossier_repo),
 ) -> dict:
     doc_id = await repo.create(user_id, dossier)

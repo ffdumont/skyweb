@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
 from core.api.deps import (
     get_airspace_query,
     get_current_user,
+    get_current_user_or_demo,
     get_route_repo,
     get_waypoint_repo,
 )
@@ -325,7 +326,7 @@ async def load_demo_route(
 @router.get("/{route_id}")
 async def get_route(
     route_id: str,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(get_current_user_or_demo),
     repo: RouteRepository = Depends(get_route_repo),
     wp_repo: WaypointRepository = Depends(get_waypoint_repo),
 ) -> dict:
@@ -375,7 +376,7 @@ async def delete_route(
 @router.get("/{route_id}/ground-profile")
 async def ground_profile(
     route_id: str,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(get_current_user_or_demo),
     route_repo: RouteRepository = Depends(get_route_repo),
     wp_repo: WaypointRepository = Depends(get_waypoint_repo),
 ) -> list[dict]:
@@ -467,7 +468,7 @@ def _haversine_nm_py(lat1: float, lon1: float, lat2: float, lon2: float) -> floa
 @router.get("/{route_id}/analysis")
 async def analyze_route(
     route_id: str,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(get_current_user_or_demo),
     route_repo: RouteRepository = Depends(get_route_repo),
     wp_repo: WaypointRepository = Depends(get_waypoint_repo),
     airspace_svc: AirspaceQueryService = Depends(get_airspace_query),

@@ -49,3 +49,19 @@ async def verify_firebase_token(
         email=decoded.get("email"),
         name=decoded.get("name"),
     )
+
+
+async def verify_firebase_token_or_demo(
+    authorization: str | None = Header(None, description="Bearer <Firebase ID token>"),
+    x_demo_mode: str | None = Header(None, alias="X-Demo-Mode"),
+) -> UserClaims:
+    """Like verify_firebase_token but allows demo mode when X-Demo-Mode header is set.
+
+    Used for endpoints that should work in demo mode without authentication.
+    """
+    # Allow demo mode with special header
+    if x_demo_mode == "true":
+        return UserClaims(uid="demo", email="demo@skyweb.app", name="Demo User")
+
+    # Otherwise, require normal auth
+    return await verify_firebase_token(authorization)
