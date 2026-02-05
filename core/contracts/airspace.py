@@ -42,6 +42,11 @@ class AirspaceIntersection(FirestoreModel):
     partie_id: str | None = None
     volume_id: str | None = None
 
+    # GeoJSON geometry for map rendering (Polygon or MultiPolygon)
+    geometry_geojson: dict | None = Field(
+        default=None, description="GeoJSON geometry for 3D rendering"
+    )
+
 
 class LegAirspaces(FirestoreModel):
     """Airspace analysis result for a single route leg."""

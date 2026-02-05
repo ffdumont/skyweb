@@ -6,7 +6,11 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from dotenv import load_dotenv
 from fastapi import FastAPI
+
+# Load .env file from project root
+load_dotenv()
 from fastapi.middleware.cors import CORSMiddleware
 
 from core.api.routes import (
@@ -14,7 +18,7 @@ from core.api.routes import (
     aircraft,
     airspaces,
     community,
-    flights,
+    dossiers,
     routes,
     waypoints,
     weather,
@@ -60,7 +64,7 @@ app.add_middleware(
 
 app.include_router(waypoints.router, prefix="/api")
 app.include_router(aircraft.router, prefix="/api")
-app.include_router(flights.router, prefix="/api")
+app.include_router(dossiers.router, prefix="/api")
 app.include_router(routes.router, prefix="/api")
 app.include_router(aerodromes.router, prefix="/api")
 app.include_router(airspaces.router, prefix="/api")

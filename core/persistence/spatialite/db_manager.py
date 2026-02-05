@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import logging
-import os
 import sqlite3
-import sys
 import tempfile
 from pathlib import Path
 
 from core.persistence.errors import SpatiaLiteNotReadyError
+from core.persistence.spatialite.spatialite_loader import enable_spatialite
 
 logger = logging.getLogger(__name__)
 
@@ -113,79 +112,5 @@ class SpatiaLiteManager:
         uri = f"file:{self._local_path}?mode=ro"
         conn = sqlite3.connect(uri, uri=True)
         conn.row_factory = sqlite3.Row
-        _load_spatialite(conn)
+        enable_spatialite(conn)
         return conn
-
-
-# ------------------------------------------------------------------
-# SpatiaLite extension loading (cross-platform)
-# ------------------------------------------------------------------
-
-def _load_spatialite(conn: sqlite3.Connection) -> None:
-    """Load the SpatiaLite extension into a connection.
-
-    Tries, in order:
-    1. SPATIALITE_LIBRARY_PATH env var
-    2. Platform-specific known paths
-    3. Generic library name (relies on system library path)
-    """
-    conn.enable_load_extension(True)
-
-    # Strategy 1: environment variable
-    env_path = os.environ.get("SPATIALITE_LIBRARY_PATH")
-    if env_path and _try_load(conn, env_path):
-        return
-
-    # Strategy 2: platform-specific paths
-    for path in _platform_search_paths():
-        if path.exists() and _try_load(conn, str(path)):
-            return
-
-    # Strategy 3: generic names
-    for name in _generic_names():
-        if _try_load(conn, name):
-            return
-
-    raise RuntimeError(
-        "Failed to load SpatiaLite extension. "
-        "Install it (apt-get install libsqlite3-mod-spatialite, "
-        "conda install -c conda-forge libspatialite, "
-        "or set SPATIALITE_LIBRARY_PATH)."
-    )
-
-
-def _try_load(conn: sqlite3.Connection, lib: str) -> bool:
-    try:
-        conn.load_extension(lib)
-        return True
-    except Exception:
-        return False
-
-
-def _platform_search_paths() -> list[Path]:
-    if sys.platform == "win32":
-        paths: list[Path] = []
-        conda = os.environ.get("CONDA_PREFIX")
-        if conda:
-            paths.append(Path(conda) / "Library" / "bin" / "mod_spatialite.dll")
-        for root in [Path("C:/OSGeo4W64"), Path("C:/OSGeo4W")]:
-            paths.append(root / "bin" / "mod_spatialite.dll")
-        return paths
-
-    if sys.platform == "darwin":
-        return [
-            Path("/opt/homebrew/lib/mod_spatialite.dylib"),
-            Path("/usr/local/lib/mod_spatialite.dylib"),
-        ]
-
-    # Linux
-    return [
-        Path("/usr/lib/x86_64-linux-gnu/mod_spatialite.so"),
-        Path("/usr/lib/aarch64-linux-gnu/mod_spatialite.so"),
-        Path("/usr/lib64/mod_spatialite.so"),
-        Path("/usr/local/lib/mod_spatialite.so"),
-    ]
-
-
-def _generic_names() -> list[str]:
-    return ["mod_spatialite", "spatialite", "libspatialite"]

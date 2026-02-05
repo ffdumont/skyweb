@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import sqlite3
 
@@ -135,7 +136,9 @@ class AirspaceQueryService:
                 a.altitude_floor_ft_amsl,
                 a.altitude_ceiling_ft_amsl,
                 a.partie_pk,
-                a.volume_pk
+                a.volume_pk,
+                a.espace_pk,
+                AsGeoJSON(a.geometry) AS geometry_json
             FROM airspace_spatial_indexed a
             WHERE ST_Intersects(a.geometry, GeomFromText(?, 4326))
               AND a.altitude_floor_ft_amsl <= ?
@@ -151,7 +154,15 @@ class AirspaceQueryService:
                 conn, lat1, lon1, lat2, lon2, row["partie_pk"]
             )
 
-            services = self._get_services(conn, row["espace_pk"] if "espace_pk" in row.keys() else None)
+            services = self._get_services(conn, row["espace_pk"])
+
+            # Parse GeoJSON geometry
+            geometry_geojson = None
+            if row["geometry_json"]:
+                try:
+                    geometry_geojson = json.loads(row["geometry_json"])
+                except json.JSONDecodeError:
+                    pass
 
             results.append(
                 AirspaceIntersection(
@@ -164,6 +175,7 @@ class AirspaceQueryService:
                     partie_id=str(row["partie_pk"]),
                     volume_id=str(row["volume_pk"]),
                     services=services,
+                    geometry_geojson=geometry_geojson,
                 )
             )
         return results
@@ -266,20 +278,41 @@ class AirspaceQueryService:
     def _get_services(
         self, conn: sqlite3.Connection, espace_pk: int | None
     ) -> list[ServiceInfo]:
-        """Fetch ATC services and frequencies for an airspace."""
+        """Fetch ATC services and frequencies for an airspace.
+
+        Returns empty list if services lookup fails (graceful degradation).
+        """
         if espace_pk is None:
             return []
 
-        rows = conn.execute(
-            """
-            SELECT s.IndicLieu, s.IndicService,
-                   f.Frequence, f.Espacement
-            FROM Service s
-            LEFT JOIN Frequence f ON f.Service_pk = s.pk
-            WHERE s.Espace_pk = ?
-            """,
-            (espace_pk,),
-        ).fetchall()
+        try:
+            rows = conn.execute(
+                """
+                SELECT s.IndicLieu, s.IndicService,
+                       f.Frequence, f.Espacement
+                FROM Service s
+                LEFT JOIN Frequence f ON f.ServiceRef = s.pk
+                WHERE s.EspaceRef = ?
+                """,
+                (espace_pk,),
+            ).fetchall()
+        except sqlite3.OperationalError as e:
+            # Schema mismatch - try with original column names
+            logger.warning("Service lookup failed with EspaceRef, trying Espace_pk: %s", e)
+            try:
+                rows = conn.execute(
+                    """
+                    SELECT s.IndicLieu, s.IndicService,
+                           f.Frequence, f.Espacement
+                    FROM Service s
+                    LEFT JOIN Frequence f ON f.Service_pk = s.pk
+                    WHERE s.Espace_pk = ?
+                    """,
+                    (espace_pk,),
+                ).fetchall()
+            except sqlite3.OperationalError:
+                logger.warning("Service lookup unavailable for espace_pk=%s", espace_pk)
+                return []
 
         services: dict[str, ServiceInfo] = {}
         for row in rows:
