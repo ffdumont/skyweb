@@ -48,11 +48,16 @@ async def lifespan(app: FastAPI):
     if local_db:
         try:
             manager.use_local(Path(local_db))
-            logger.info("Loaded SpatiaLite DB: %s", local_db)
+            logger.info("Loaded SpatiaLite DB from local path: %s", local_db)
         except FileNotFoundError:
             logger.warning("SPATIALITE_DB_PATH file not found: %s", local_db)
     else:
-        logger.info("No SPATIALITE_DB_PATH — airspace/aerodrome endpoints return empty results")
+        # Try to download from GCS (Cloud Run environment)
+        try:
+            db_path = manager.download()
+            logger.info("Downloaded SpatiaLite DB from GCS: %s (cycle %s)", db_path, manager.current_cycle)
+        except Exception as exc:
+            logger.warning("Failed to download SpatiaLite DB from GCS: %s", exc)
 
     app.state.spatialite_manager = manager
     yield
