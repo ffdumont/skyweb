@@ -28,9 +28,20 @@ from core.persistence.spatialite.db_manager import SpatiaLiteManager  # noqa: E4
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Initialize SpatiaLite manager on startup."""
+    """Initialize Firebase Admin and SpatiaLite manager on startup."""
     import logging
     logger = logging.getLogger(__name__)
+
+    # Initialize Firebase Admin SDK (uses ADC on Cloud Run)
+    try:
+        import firebase_admin
+        firebase_admin.initialize_app()
+        logger.info("Firebase Admin SDK initialized")
+    except ValueError:
+        # Already initialized
+        logger.info("Firebase Admin SDK already initialized")
+    except Exception as exc:
+        logger.warning("Firebase Admin SDK init failed: %s", exc)
 
     manager = SpatiaLiteManager()
     local_db = os.environ.get("SPATIALITE_DB_PATH")
