@@ -1,7 +1,7 @@
 {
   "name": "skyweb",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,11 +10,12 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@types/leaflet": "^1.9.21",
     "cesium": "^1.119",
-    "firebase": "^10.12",
-    "idb": "^8.0",
+    "leaflet": "^1.9.4",
     "react": "18.2.0",
     "react-dom": "18.2.0",
+    "react-leaflet": "^4.2.1",
     "resium": "1.17.3",
     "zustand": "^4.5"
   },
