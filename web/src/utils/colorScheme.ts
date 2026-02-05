@@ -1,6 +1,5 @@
 import { Color } from "cesium";
 
-/** Airspace type → RGBA fill color (semi-transparent). */
 const COLORS: Record<string, Color> = {
   FIR: Color.fromCssColorString("rgba(100,100,200,0.08)"),
   UIR: Color.fromCssColorString("rgba(100,100,200,0.06)"),
