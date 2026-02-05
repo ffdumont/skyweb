@@ -1,33 +1,145 @@
-"""Weather simulation endpoints (stub — filled by Component 2)."""
+"""Weather simulation endpoints — fetch multi-model forecasts from Open-Meteo."""
 
 from __future__ import annotations
 
+from datetime import datetime
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
-from core.api.deps import get_current_user, get_route_repo
-from core.persistence.repositories.route_repo import RouteRepository
+from core.api.deps import get_current_user
+from core.services.weather_service import WeatherService
 
-router = APIRouter(prefix="/routes/{route_id}/simulations", tags=["weather"])
+router = APIRouter(prefix="/weather", tags=["weather"])
 
 
-@router.get("")
-async def list_simulations(
-    route_id: str,
+class WaypointInput(BaseModel):
+    """Waypoint for weather simulation."""
+
+    name: str
+    lat: float = Field(..., ge=-90, le=90)
+    lon: float = Field(..., ge=-180, le=180)
+    icao: str | None = None
+
+
+class SimulationRequest(BaseModel):
+    """Request to run a weather simulation."""
+
+    waypoints: list[WaypointInput] = Field(
+        ..., min_length=1, description="List of waypoints"
+    )
+    departure_datetime: datetime = Field(
+        ..., description="Departure time in UTC"
+    )
+    cruise_speed_kt: float = Field(
+        default=100.0, ge=50, le=300, description="Cruise speed in knots"
+    )
+    cruise_altitude_ft: int = Field(
+        default=3500, ge=0, le=20000, description="Cruise altitude in feet"
+    )
+    models: list[str] | None = Field(
+        default=None, description="Models to query: arome, ecmwf, gfs, icon"
+    )
+
+
+@router.post("/simulations")
+async def run_simulation(
+    request: SimulationRequest,
     user_id: str = Depends(get_current_user),
-    repo: RouteRepository = Depends(get_route_repo),
-) -> list[dict]:
-    sims = await repo.list_simulations(user_id, route_id)
-    return [s.to_firestore() for s in sims]
+) -> dict[str, Any]:
+    """Run a new weather simulation for a route.
+
+    Fetches forecasts from multiple weather models (AROME, ECMWF, GFS, ICON)
+    for each waypoint at the estimated passage time.
+    """
+    service = WeatherService()
+
+    # Convert waypoints to dict format
+    waypoints = [
+        {"name": wp.name, "lat": wp.lat, "lon": wp.lon, "icao": wp.icao}
+        for wp in request.waypoints
+    ]
+
+    try:
+        simulation = await service.run_simulation(
+            waypoints=waypoints,
+            departure_datetime=request.departure_datetime,
+            cruise_speed_kt=request.cruise_speed_kt,
+            cruise_altitude_ft=request.cruise_altitude_ft,
+            models=request.models,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Weather API error: {e}")
+
+    # Convert to JSON-serializable format
+    return _simulation_to_dict(simulation)
 
 
-@router.get("/{simulation_id}")
-async def get_simulation(
-    route_id: str,
-    simulation_id: str,
-    user_id: str = Depends(get_current_user),
-    repo: RouteRepository = Depends(get_route_repo),
-) -> dict:
-    sim = await repo.get_simulation(user_id, route_id, simulation_id)
-    if sim is None:
-        raise HTTPException(status_code=404, detail="Simulation not found")
-    return sim.to_firestore()
+@router.get("/models")
+async def list_models() -> list[dict[str, Any]]:
+    """List available weather models."""
+    return WeatherService.get_available_models()
+
+
+def _simulation_to_dict(simulation) -> dict[str, Any]:
+    """Convert WeatherSimulation to JSON-serializable dict."""
+    waypoints_data = [
+        {
+            "waypoint_name": wp.waypoint_name,
+            "waypoint_index": wp.waypoint_index,
+            "latitude": wp.latitude,
+            "longitude": wp.longitude,
+            "icao": wp.icao,
+            "estimated_time_utc": wp.estimated_time_utc.isoformat(),
+        }
+        for wp in simulation.waypoints
+    ]
+
+    model_results_data = []
+    for mr in simulation.model_results:
+        points_data = []
+        for pt in mr.points:
+            forecast = pt.forecast
+            points_data.append({
+                "waypoint_index": pt.waypoint_index,
+                "forecast": {
+                    "temperature_2m": forecast.temperature_2m,
+                    "dewpoint_2m": forecast.dewpoint_2m,
+                    "wind_speed_10m": forecast.wind_speed_10m,
+                    "wind_direction_10m": forecast.wind_direction_10m,
+                    "wind_gusts_10m": forecast.wind_gusts_10m,
+                    "temperature_levels": forecast.temperature_levels,
+                    "wind_speed_levels": forecast.wind_speed_levels,
+                    "wind_direction_levels": forecast.wind_direction_levels,
+                    "cloud_cover": forecast.cloud_cover,
+                    "cloud_cover_low": forecast.cloud_cover_low,
+                    "cloud_cover_mid": forecast.cloud_cover_mid,
+                    "cloud_cover_high": forecast.cloud_cover_high,
+                    "visibility": forecast.visibility,
+                    "precipitation": forecast.precipitation,
+                    "pressure_msl": forecast.pressure_msl,
+                    "weather_code": forecast.weather_code,
+                },
+                "vfr_index": {
+                    "status": pt.vfr_index.status.value,
+                    "visibility_ok": pt.vfr_index.visibility_ok,
+                    "ceiling_ok": pt.vfr_index.ceiling_ok,
+                    "wind_ok": pt.vfr_index.wind_ok,
+                    "details": pt.vfr_index.details,
+                },
+            })
+
+        model_results_data.append({
+            "model": mr.model.value,
+            "model_run_time": mr.model_run_time.isoformat(),
+            "points": points_data,
+        })
+
+    return {
+        "simulation_id": f"sim_{int(simulation.simulated_at.timestamp())}",
+        "simulated_at": simulation.simulated_at.isoformat(),
+        "navigation_datetime": simulation.navigation_datetime.isoformat(),
+        "waypoints": waypoints_data,
+        "model_results": model_results_data,
+    }

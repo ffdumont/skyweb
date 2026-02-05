@@ -121,3 +121,86 @@ export interface RouteAirspaceAnalysis {
   legs: LegAirspaces[];
   analyzed_at: string | null;
 }
+
+// ============ Weather Simulation Types ============
+
+export interface WeatherModel {
+  id: string;
+  name: string;
+  provider: string;
+  horizon_hours: number;
+  color: string;
+}
+
+export interface WaypointForecastInput {
+  name: string;
+  lat: number;
+  lon: number;
+  icao?: string | null;
+}
+
+export interface SimulationRequest {
+  waypoints: WaypointForecastInput[];
+  departure_datetime: string;
+  cruise_speed_kt: number;
+  cruise_altitude_ft: number;
+  models?: string[] | null;
+}
+
+export interface WaypointContext {
+  waypoint_name: string;
+  waypoint_index: number;
+  latitude: number;
+  longitude: number;
+  icao: string | null;
+  estimated_time_utc: string;
+}
+
+export interface ForecastData {
+  temperature_2m: number | null;
+  dewpoint_2m: number | null;
+  wind_speed_10m: number | null;
+  wind_direction_10m: number | null;
+  wind_gusts_10m: number | null;
+  temperature_levels: Record<number, number>;
+  wind_speed_levels: Record<number, number>;
+  wind_direction_levels: Record<number, number>;
+  cloud_cover: number | null;
+  cloud_cover_low: number | null;
+  cloud_cover_mid: number | null;
+  cloud_cover_high: number | null;
+  visibility: number | null;
+  precipitation: number | null;
+  pressure_msl: number | null;
+  weather_code: number | null;
+}
+
+export type VFRStatus = "green" | "yellow" | "red";
+
+export interface VFRIndex {
+  status: VFRStatus;
+  visibility_ok: boolean;
+  ceiling_ok: boolean;
+  wind_ok: boolean;
+  details: string;
+}
+
+export interface ModelPoint {
+  waypoint_index: number;
+  forecast: ForecastData;
+  vfr_index: VFRIndex;
+}
+
+export interface ModelResult {
+  model: string;
+  model_run_time: string;
+  points: ModelPoint[];
+}
+
+export interface SimulationResponse {
+  simulation_id: string;
+  simulated_at: string;
+  navigation_datetime: string;
+  waypoints: WaypointContext[];
+  model_results: ModelResult[];
+}

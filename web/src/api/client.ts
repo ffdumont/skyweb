@@ -10,7 +10,10 @@ import type {
   DossierResponse,
   GroundPoint,
   RouteAirspaceAnalysis,
+  SimulationRequest,
+  SimulationResponse,
   UploadRouteResponse,
+  WeatherModel,
 } from "./types";
 
 class ApiError extends Error {
@@ -75,4 +78,20 @@ export async function getRouteAnalysis(
   routeId: string,
 ): Promise<RouteAirspaceAnalysis> {
   return apiFetch<RouteAirspaceAnalysis>(`/api/routes/${routeId}/analysis`);
+}
+
+// ============ Weather API ============
+
+export async function getWeatherModels(): Promise<WeatherModel[]> {
+  return apiFetch<WeatherModel[]>("/api/weather/models");
+}
+
+export async function runWeatherSimulation(
+  request: SimulationRequest,
+): Promise<SimulationResponse> {
+  return apiFetch<SimulationResponse>("/api/weather/simulations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(request),
+  });
 }

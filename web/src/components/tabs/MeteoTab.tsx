@@ -1,136 +1,84 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useDossierStore } from "../../stores/dossierStore";
 import RouteProfile from "../route/RouteProfile";
+import { runWeatherSimulation, getWeatherModels } from "../../api/client";
+import type { SimulationResponse, ModelPoint, WeatherModel } from "../../api/types";
 
-// Weather models
-const MODELS = [
-  { id: "arome", name: "AROME", provider: "Météo-France", color: "#0066cc" },
-  { id: "arpege", name: "ARPEGE", provider: "Météo-France", color: "#009966" },
-  { id: "gfs", name: "GFS", provider: "NOAA", color: "#cc6600" },
-  { id: "icon", name: "ICON", provider: "DWD", color: "#9933cc" },
-];
-
-// Weather variables
+// Weather variables to display
 const VARIABLES = [
-  { id: "temp_cruise", name: "Température FL", unit: "°C" },
-  { id: "wind_cruise", name: "Vent FL", unit: "" },
+  { id: "temperature", name: "Température sol", unit: "°C" },
   { id: "wind_ground", name: "Vent sol", unit: "" },
+  { id: "wind_gusts", name: "Rafales", unit: "kt" },
   { id: "cloud_low", name: "Nuages bas", unit: "%" },
   { id: "cloud_total", name: "Nébulosité", unit: "%" },
-  { id: "precip", name: "Précipitations", unit: "mm/h" },
+  { id: "precip", name: "Précipitations", unit: "mm" },
   { id: "visibility", name: "Visibilité", unit: "km" },
-  { id: "freezing", name: "Iso 0°C", unit: "ft" },
+  { id: "vfr_status", name: "Statut VFR", unit: "" },
 ];
 
-// Mock simulation data
-interface WaypointForecast {
-  waypoint: string;
-  passage_time: string;
-  temp_cruise: number;
-  wind_cruise_dir: number;
-  wind_cruise_speed: number;
-  wind_ground_dir: number;
-  wind_ground_speed: number;
-  cloud_low: number;
-  cloud_total: number;
-  precip: number;
-  visibility: number;
-  freezing: number;
-}
-
-interface ModelForecast {
-  model_run: string;
-  horizon: string;
-  data: WaypointForecast[];
-}
+// Default models if API fails
+const DEFAULT_MODELS: WeatherModel[] = [
+  { id: "arome", name: "AROME", provider: "Météo-France", horizon_hours: 48, color: "#0066cc" },
+  { id: "ecmwf", name: "ECMWF IFS", provider: "ECMWF", horizon_hours: 96, color: "#009966" },
+  { id: "gfs", name: "GFS", provider: "NOAA", horizon_hours: 384, color: "#cc6600" },
+  { id: "icon", name: "ICON", provider: "DWD", horizon_hours: 180, color: "#9933cc" },
+];
 
 interface Simulation {
   id: string;
   created_at: string;
   departure_datetime: string;
   cruise_speed_kt: number;
-  forecasts: Record<string, ModelForecast>;
-}
-
-// Generate mock forecast data
-function generateMockForecast(waypoints: string[], departureTime: Date, cruiseSpeedKt: number): Simulation {
-  const baseTemp = 15 + Math.random() * 10;
-  const baseWindDir = 180 + Math.random() * 180;
-  const baseWindSpeed = 10 + Math.random() * 30;
-
-  const generateModelData = (modelId: string): ModelForecast => {
-    const variation = modelId === "arome" ? 0 : (modelId === "arpege" ? 2 : 4);
-    let cumulativeTime = 0;
-
-    return {
-      model_run: new Date(Date.now() - 6 * 3600000).toISOString(),
-      horizon: modelId === "arome" ? "+42h" : "+102h",
-      data: waypoints.map((wp, i) => {
-        // Simulate passage time based on distance (rough estimate)
-        const passageTime = new Date(departureTime.getTime() + cumulativeTime * 3600000);
-        cumulativeTime += 0.75 + Math.random() * 0.5; // ~45-75 min per leg
-
-        return {
-          waypoint: wp,
-          passage_time: passageTime.toISOString(),
-          temp_cruise: Math.round((baseTemp + i * 2 + (Math.random() - 0.5) * variation) * 10) / 10,
-          wind_cruise_dir: Math.round(baseWindDir + i * 10 + (Math.random() - 0.5) * 20) % 360,
-          wind_cruise_speed: Math.round(baseWindSpeed + (Math.random() - 0.5) * variation * 2),
-          wind_ground_dir: Math.round(baseWindDir - 30 + (Math.random() - 0.5) * 40) % 360,
-          wind_ground_speed: Math.round(8 + Math.random() * 12),
-          cloud_low: Math.round(Math.random() * 60),
-          cloud_total: Math.round(20 + Math.random() * 60),
-          precip: Math.round(Math.random() * 2 * 10) / 10,
-          visibility: Math.round(8 + Math.random() * 12),
-          freezing: Math.round(6000 + Math.random() * 4000),
-        };
-      }),
-    };
-  };
-
-  return {
-    id: `sim_${Date.now()}`,
-    created_at: new Date().toISOString(),
-    departure_datetime: departureTime.toISOString(),
-    cruise_speed_kt: cruiseSpeedKt,
-    forecasts: {
-      arome: generateModelData("arome"),
-      arpege: generateModelData("arpege"),
-      gfs: generateModelData("gfs"),
-      icon: generateModelData("icon"),
-    },
-  };
+  response: SimulationResponse;
 }
 
 export default function MeteoTab() {
   const routeData = useDossierStore((s) => s.routeData);
   const dossier = useDossierStore((s) => s.dossier);
 
+  // Available models from API
+  const [availableModels, setAvailableModels] = useState<WeatherModel[]>(DEFAULT_MODELS);
+
   // Local state for weather tab
-  const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set(["arome", "arpege"]));
+  const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set(["arome", "ecmwf"]));
   const [selectedVariables, setSelectedVariables] = useState<Set<string>>(
-    new Set(["temp_cruise", "wind_cruise", "wind_ground", "cloud_low"])
+    new Set(["temperature", "wind_ground", "cloud_low", "vfr_status"])
   );
   const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [currentSimulationId, setCurrentSimulationId] = useState<string | null>(null);
   const [simulationLoading, setSimulationLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Simulation parameters
   const [departureDatetime, setDepartureDatetime] = useState(() => {
     if (dossier?.date) {
+      // dossier.date is in YYYY-MM-DD format, add default time
       return `${dossier.date}T12:00`;
     }
     const now = new Date();
+    now.setHours(now.getHours() + 1, 0, 0, 0);
     return now.toISOString().slice(0, 16);
   });
   const [cruiseSpeedKt, setCruiseSpeedKt] = useState(100);
+  const [cruiseAltitudeFt, setCruiseAltitudeFt] = useState(3500);
 
-  // Waypoint names for columns
-  const waypointNames = useMemo(() => {
+  // Load available models on mount
+  useEffect(() => {
+    getWeatherModels()
+      .then(setAvailableModels)
+      .catch(() => setAvailableModels(DEFAULT_MODELS));
+  }, []);
+
+  // Waypoints for API call
+  const waypoints = useMemo(() => {
     if (!routeData?.waypoints) return [];
     return routeData.waypoints
       .filter((wp) => !wp.is_intermediate)
-      .map((wp) => wp.name);
+      .map((wp) => ({
+        name: wp.name,
+        lat: wp.lat,
+        lon: wp.lon,
+      }));
   }, [routeData]);
 
   // Current simulation
@@ -165,31 +113,51 @@ export default function MeteoTab() {
 
   // Run simulation
   const runSimulation = async () => {
-    if (waypointNames.length === 0) return;
+    if (waypoints.length === 0) return;
 
     setSimulationLoading(true);
+    setError(null);
 
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    try {
+      const response = await runWeatherSimulation({
+        waypoints,
+        departure_datetime: new Date(departureDatetime).toISOString(),
+        cruise_speed_kt: cruiseSpeedKt,
+        cruise_altitude_ft: cruiseAltitudeFt,
+        models: Array.from(selectedModels),
+      });
 
-    const departureDate = new Date(departureDatetime);
-    const newSimulation = generateMockForecast(waypointNames, departureDate, cruiseSpeedKt);
+      const newSimulation: Simulation = {
+        id: response.simulation_id,
+        created_at: response.simulated_at,
+        departure_datetime: response.navigation_datetime,
+        cruise_speed_kt: cruiseSpeedKt,
+        response,
+      };
 
-    setSimulations((prev) => [newSimulation, ...prev]);
-    setCurrentSimulationId(newSimulation.id);
-    setSimulationLoading(false);
+      setSimulations((prev) => [newSimulation, ...prev]);
+      setCurrentSimulationId(newSimulation.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erreur lors de la simulation");
+    } finally {
+      setSimulationLoading(false);
+    }
   };
 
   // Delete simulation
   const deleteSimulation = (simId: string) => {
     setSimulations((prev) => prev.filter((s) => s.id !== simId));
     if (currentSimulationId === simId) {
-      setCurrentSimulationId(simulations.length > 1 ? simulations[0].id : null);
+      const remaining = simulations.filter((s) => s.id !== simId);
+      setCurrentSimulationId(remaining.length > 0 ? remaining[0].id : null);
     }
   };
 
   // Format wind display
-  const formatWind = (dir: number, speed: number) => `${String(dir).padStart(3, "0")}°/${speed}kt`;
+  const formatWind = (dir: number | null, speed: number | null) => {
+    if (dir === null || speed === null) return "—";
+    return `${String(Math.round(dir)).padStart(3, "0")}°/${Math.round(speed)}kt`;
+  };
 
   // Format time for display
   const formatTime = (isoString: string) => {
@@ -197,27 +165,42 @@ export default function MeteoTab() {
     return date.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   };
 
-  // Get value for display
-  const getValue = (data: WaypointForecast, variableId: string): string => {
+  // Get value for display from ModelPoint
+  const getValue = (point: ModelPoint, variableId: string): string => {
+    const f = point.forecast;
     switch (variableId) {
-      case "temp_cruise":
-        return `${data.temp_cruise}°C`;
-      case "wind_cruise":
-        return formatWind(data.wind_cruise_dir, data.wind_cruise_speed);
+      case "temperature":
+        return f.temperature_2m !== null ? `${f.temperature_2m.toFixed(1)}°C` : "—";
       case "wind_ground":
-        return formatWind(data.wind_ground_dir, data.wind_ground_speed);
+        return formatWind(f.wind_direction_10m, f.wind_speed_10m);
+      case "wind_gusts":
+        return f.wind_gusts_10m !== null ? `${Math.round(f.wind_gusts_10m)}kt` : "—";
       case "cloud_low":
-        return `${data.cloud_low}%`;
+        return f.cloud_cover_low !== null ? `${f.cloud_cover_low}%` : "—";
       case "cloud_total":
-        return `${data.cloud_total}%`;
+        return f.cloud_cover !== null ? `${f.cloud_cover}%` : "—";
       case "precip":
-        return data.precip > 0 ? `${data.precip} mm/h` : "—";
+        return f.precipitation !== null && f.precipitation > 0 ? `${f.precipitation.toFixed(1)}mm` : "—";
       case "visibility":
-        return `${data.visibility} km`;
-      case "freezing":
-        return `${data.freezing} ft`;
+        if (f.visibility === null) return "—";
+        const visKm = f.visibility / 1000;
+        return visKm >= 10 ? ">10km" : `${visKm.toFixed(1)}km`;
+      case "vfr_status":
+        const status = point.vfr_index.status;
+        const icon = status === "green" ? "✅" : status === "yellow" ? "⚠️" : "🔴";
+        return icon;
       default:
         return "—";
+    }
+  };
+
+  // Get VFR row background color
+  const getVfrBackground = (status: string) => {
+    switch (status) {
+      case "green": return "#d4edda";
+      case "yellow": return "#fff3cd";
+      case "red": return "#f8d7da";
+      default: return "transparent";
     }
   };
 
@@ -241,6 +224,19 @@ export default function MeteoTab() {
 
       {/* Scrollable content */}
       <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
+        {/* Error message */}
+        {error && (
+          <div style={{
+            padding: 12,
+            marginBottom: 16,
+            background: "#f8d7da",
+            color: "#721c24",
+            borderRadius: 8,
+          }}>
+            {error}
+          </div>
+        )}
+
         {/* Simulation Controls */}
         <div
           style={{
@@ -286,6 +282,24 @@ export default function MeteoTab() {
             <span style={{ fontSize: 13, color: "#666" }}>kt</span>
           </div>
 
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <label style={{ fontSize: 13, fontWeight: 500 }}>Altitude:</label>
+            <input
+              type="number"
+              value={cruiseAltitudeFt}
+              onChange={(e) => setCruiseAltitudeFt(Number(e.target.value))}
+              step={500}
+              style={{
+                width: 80,
+                padding: "6px 10px",
+                border: "1px solid #ccc",
+                borderRadius: 4,
+                fontSize: 13,
+              }}
+            />
+            <span style={{ fontSize: 13, color: "#666" }}>ft</span>
+          </div>
+
           <button
             onClick={runSimulation}
             disabled={simulationLoading}
@@ -299,7 +313,7 @@ export default function MeteoTab() {
               cursor: simulationLoading ? "not-allowed" : "pointer",
             }}
           >
-            {simulationLoading ? "Chargement..." : "▶ Lancer simulation"}
+            {simulationLoading ? "Chargement..." : "Lancer simulation"}
           </button>
 
           {simulations.length > 0 && (
@@ -338,7 +352,7 @@ export default function MeteoTab() {
                   }}
                   title="Supprimer cette simulation"
                 >
-                  🗑
+                  X
                 </button>
               )}
             </div>
@@ -363,7 +377,7 @@ export default function MeteoTab() {
               Modèles
             </div>
             <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-              {MODELS.map((model) => (
+              {availableModels.map((model) => (
                 <label
                   key={model.id}
                   style={{
@@ -435,7 +449,7 @@ export default function MeteoTab() {
               borderRadius: 8,
             }}
           >
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🌤</div>
+            <div style={{ fontSize: 48, marginBottom: 16 }}>*</div>
             <div style={{ fontSize: 15 }}>
               Lancez une simulation pour voir les prévisions météo le long de votre route.
             </div>
@@ -444,85 +458,96 @@ export default function MeteoTab() {
 
         {/* Model sections */}
         {currentSimulation &&
-          MODELS.filter((m) => selectedModels.has(m.id)).map((model) => {
-            const forecast = currentSimulation.forecasts[model.id];
-            if (!forecast) return null;
+          currentSimulation.response.model_results
+            .filter((mr) => {
+              // Map API model names to our IDs
+              const modelId = mr.model.replace("_france", "").replace("_europe", "").replace("_world", "").toLowerCase();
+              return selectedModels.has(modelId) || selectedModels.has(mr.model);
+            })
+            .map((modelResult) => {
+              const modelConfig = availableModels.find((m) =>
+                modelResult.model.toLowerCase().includes(m.id) || m.id === modelResult.model
+              ) ?? { name: modelResult.model, color: "#666", provider: "", horizon_hours: 0 };
 
-            const activeVariables = VARIABLES.filter((v) => selectedVariables.has(v.id));
+              const activeVariables = VARIABLES.filter((v) => selectedVariables.has(v.id));
 
-            return (
-              <div
-                key={model.id}
-                style={{
-                  marginBottom: 20,
-                  border: "1px solid #e0e0e0",
-                  borderRadius: 8,
-                  overflow: "hidden",
-                }}
-              >
-                {/* Model header */}
+              return (
                 <div
+                  key={modelResult.model}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "10px 12px",
-                    background: model.color,
-                    color: "#fff",
+                    marginBottom: 20,
+                    border: "1px solid #e0e0e0",
+                    borderRadius: 8,
+                    overflow: "hidden",
                   }}
                 >
-                  <span style={{ fontWeight: 600 }}>{model.name}</span>
-                  <span style={{ fontSize: 12, opacity: 0.9 }}>({model.provider})</span>
-                  <span style={{ marginLeft: "auto", fontSize: 12, opacity: 0.9 }}>
-                    Run {new Date(forecast.model_run).toLocaleTimeString("fr-FR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}Z • Horizon {forecast.horizon}
-                  </span>
-                </div>
+                  {/* Model header */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "10px 12px",
+                      background: modelConfig.color,
+                      color: "#fff",
+                    }}
+                  >
+                    <span style={{ fontWeight: 600 }}>{modelConfig.name}</span>
+                    <span style={{ fontSize: 12, opacity: 0.9 }}>({modelConfig.provider})</span>
+                    <span style={{ marginLeft: "auto", fontSize: 12, opacity: 0.9 }}>
+                      {modelConfig.horizon_hours}h horizon
+                    </span>
+                  </div>
 
-                {/* Forecast table */}
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ background: "#f8f9fa" }}>
-                        <th style={thStyle}></th>
-                        {forecast.data.map((d) => (
-                          <th key={d.waypoint} style={{ ...thStyle, textAlign: "center" }}>
-                            <div style={{ fontWeight: 600 }}>{d.waypoint}</div>
-                            <div style={{ fontSize: 11, color: "#666", fontWeight: 400 }}>
-                              {formatTime(d.passage_time)}
-                            </div>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activeVariables.map((variable) => (
-                        <tr key={variable.id} style={{ borderTop: "1px solid #eee" }}>
-                          <td style={{ ...tdStyle, fontWeight: 500, color: "#555" }}>
-                            {variable.name}
-                          </td>
-                          {forecast.data.map((d) => (
-                            <td
-                              key={d.waypoint}
-                              style={{
-                                ...tdStyle,
-                                textAlign: "center",
-                                fontFamily: "monospace",
-                              }}
-                            >
-                              {getValue(d, variable.id)}
-                            </td>
-                          ))}
+                  {/* Forecast table */}
+                  <div style={{ overflowX: "auto" }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                      <thead>
+                        <tr style={{ background: "#f8f9fa" }}>
+                          <th style={thStyle}></th>
+                          {modelResult.points.map((pt, idx) => {
+                            const wp = currentSimulation.response.waypoints[pt.waypoint_index];
+                            return (
+                              <th key={idx} style={{ ...thStyle, textAlign: "center" }}>
+                                <div style={{ fontWeight: 600 }}>{wp?.waypoint_name ?? `WP${idx}`}</div>
+                                <div style={{ fontSize: 11, color: "#666", fontWeight: 400 }}>
+                                  {wp ? formatTime(wp.estimated_time_utc) : ""}
+                                </div>
+                              </th>
+                            );
+                          })}
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {activeVariables.map((variable) => (
+                          <tr key={variable.id} style={{ borderTop: "1px solid #eee" }}>
+                            <td style={{ ...tdStyle, fontWeight: 500, color: "#555" }}>
+                              {variable.name}
+                            </td>
+                            {modelResult.points.map((pt, idx) => (
+                              <td
+                                key={idx}
+                                style={{
+                                  ...tdStyle,
+                                  textAlign: "center",
+                                  fontFamily: "monospace",
+                                  background: variable.id === "vfr_status"
+                                    ? getVfrBackground(pt.vfr_index.status)
+                                    : "transparent",
+                                }}
+                                title={variable.id === "vfr_status" ? pt.vfr_index.details : undefined}
+                              >
+                                {getValue(pt, variable.id)}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
       </div>
     </div>
   );
