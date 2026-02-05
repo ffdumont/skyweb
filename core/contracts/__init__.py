@@ -7,8 +7,8 @@ Data authority
 - ``UserWaypoint`` — ``/users/{uid}/waypoints/{id}``
 - ``Route`` — ``/users/{uid}/routes/{id}``
 - ``Aircraft`` — ``/users/{uid}/aircraft/{id}``
-- ``Flight`` — ``/users/{uid}/flights/{id}``
-- ``WeatherSimulation`` — ``/users/{uid}/flights/{fid}/weather/{id}``
+- ``Dossier`` — ``/users/{uid}/dossiers/{id}``
+- ``WeatherSimulation`` — ``/users/{uid}/dossiers/{did}/simulations/{id}``
 
 **SQLite / SpatiaLite** (shared read-only reference data, updated per AIRAC cycle):
 - ``AerodromeInfo`` — loaded from SIA XML, queried by ICAO code
@@ -17,8 +17,8 @@ Data authority
 **Cloud Storage** (binary artifacts, referenced by GCS path from Firestore docs):
 - GPX files (``Track.gpx_ref``)
 - KML files (``Route.source_kml_ref``)
-- Preparation sheets (``Flight.prep_sheet_ref``)
-- NOTAM snapshots (``Flight.notam_snapshot_ref``)
+- Preparation sheets (``Dossier.prep_sheet_ref``)
+- NOTAM snapshots (``Dossier.notam_snapshot_ref``)
 
 Calculated (never persisted)
 ----------------------------
@@ -32,10 +32,12 @@ from core.contracts.enums import (
     AerodromeStatus,
     AirspaceType,
     CloudCover,
-    FlightStatus,
+    DossierStatus,
     ForecastModel,
     IntersectionType,
     LocationType,
+    SectionCompletion,
+    SectionId,
     TrackSource,
     VFRStatus,
     WaypointRole,
@@ -58,7 +60,7 @@ from core.contracts.aircraft import (
     LoadingStation,
     StationType,
 )
-from core.contracts.flight import Flight, StationLoad, Track, WaypointPassageTime
+from core.contracts.dossier import Dossier, StationLoad, Track, WaypointPassageTime
 from core.contracts.weather import (
     CloudLayer,
     ForecastData,
@@ -88,10 +90,12 @@ __all__ = [
     "AerodromeStatus",
     "AirspaceType",
     "CloudCover",
-    "FlightStatus",
+    "DossierStatus",
     "ForecastModel",
     "IntersectionType",
     "LocationType",
+    "SectionCompletion",
+    "SectionId",
     "TrackSource",
     "VFRStatus",
     "WaypointRole",
@@ -116,7 +120,7 @@ __all__ = [
     "FuelProfile",
     "LoadingStation",
     "StationType",
-    "Flight",
+    "Dossier",
     "StationLoad",
     "Track",
     "WaypointPassageTime",
