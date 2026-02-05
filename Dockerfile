@@ -12,6 +12,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy project files
 COPY pyproject.toml .
 COPY core/ ./core/
+COPY data/ ./data/
 
 # Install Python dependencies (api + gcp extras)
 RUN pip install --no-cache-dir ".[api,gcp]"
