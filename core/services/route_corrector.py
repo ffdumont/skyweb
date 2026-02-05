@@ -8,7 +8,7 @@ falls back to KML altitudes otherwise.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 EARTH_RADIUS_NM = 3440.065

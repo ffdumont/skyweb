@@ -11,7 +11,6 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
 
-from core.adapters.kml_parser import build_route_from_kml
 from core.api.deps import (
     get_airspace_query,
     get_current_user,
@@ -22,7 +21,7 @@ from core.contracts.enums import LocationType, WaypointRole, WaypointSource
 from core.services.elevation import get_ground_elevations
 from core.services.route_corrector import correct_route
 from core.contracts.route import Route, RouteLeg, RouteWaypointRef
-from core.contracts.waypoint import UserWaypoint, Waypoint
+from core.contracts.waypoint import UserWaypoint
 from core.persistence.repositories.route_repo import RouteRepository
 from core.persistence.repositories.waypoint_repo import WaypointRepository
 from core.persistence.errors import SpatiaLiteNotReadyError
@@ -313,9 +312,7 @@ async def ground_profile(
             cum_dist += seg_dist
             continue
 
-        # How many sample points fit in this segment
-        remaining_to_next = SAMPLE_INTERVAL_NM - (cum_dist - (samples[-1][2] if samples else 0))
-        # Actually, simpler: walk along segment at fixed intervals
+        # Walk along segment at fixed intervals
         d = SAMPLE_INTERVAL_NM - (cum_dist % SAMPLE_INTERVAL_NM) if cum_dist > 0 else SAMPLE_INTERVAL_NM
         if d > seg_dist:
             cum_dist += seg_dist

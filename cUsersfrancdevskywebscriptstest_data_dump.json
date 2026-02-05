@@ -1,0 +1,1061 @@
+
+========================================================================
+  1. PARSING KML BRUT
+========================================================================
+[
+  {
+    "name": "LFXU - LES MUREAUX",
+    "longitude": 1.941667,
+    "latitude": 48.998611,
+    "altitude_m": 426.72
+  },
+  {
+    "name": "MOR1V",
+    "longitude": 1.953162,
+    "latitude": 48.941239,
+    "altitude_m": 426.72
+  },
+  {
+    "name": "PXSW",
+    "longitude": 1.930541,
+    "latitude": 48.834312,
+    "altitude_m": 548.64
+  },
+  {
+    "name": "HOLAN",
+    "longitude": 1.872139,
+    "latitude": 48.71056,
+    "altitude_m": 548.64
+  },
+  {
+    "name": "ARNOU",
+    "longitude": 1.931751,
+    "latitude": 48.552796,
+    "altitude_m": 701.04
+  },
+  {
+    "name": "OXWW",
+    "longitude": 1.993057,
+    "latitude": 48.381675,
+    "altitude_m": 944.88
+  },
+  {
+    "name": "LFFF/OE",
+    "longitude": 2.060833,
+    "latitude": 48.077778,
+    "altitude_m": 944.88
+  },
+  {
+    "name": "BEVRO",
+    "longitude": 2.186213,
+    "latitude": 47.605899,
+    "altitude_m": 883.92
+  },
+  {
+    "name": "LFFU - CHATEAUNEUF SUR CHER",
+    "longitude": 2.376944,
+    "latitude": 46.871111,
+    "altitude_m": 0.0
+  }
+]
+
+========================================================================
+  2. WAYPOINTS (contrats Pydantic)
+========================================================================
+
+--- LFXU - LES MUREAUX ---
+{
+  "name": "LFXU - LES MUREAUX",
+  "latitude": 48.998611,
+  "longitude": 1.941667,
+  "location_type": "aerodrome",
+  "icao_code": "LFXU",
+  "id": "ff2d4d5e5010aba6"
+}
+
+--- MOR1V ---
+{
+  "name": "MOR1V",
+  "latitude": 48.941239,
+  "longitude": 1.953162,
+  "location_type": "gps_point",
+  "id": "f64fef0efeb21ea5"
+}
+
+--- PXSW ---
+{
+  "name": "PXSW",
+  "latitude": 48.834312,
+  "longitude": 1.930541,
+  "location_type": "gps_point",
+  "id": "d18df061c6145032"
+}
+
+--- HOLAN ---
+{
+  "name": "HOLAN",
+  "latitude": 48.71056,
+  "longitude": 1.872139,
+  "location_type": "gps_point",
+  "id": "16534249a07f6400"
+}
+
+--- ARNOU ---
+{
+  "name": "ARNOU",
+  "latitude": 48.552796,
+  "longitude": 1.931751,
+  "location_type": "gps_point",
+  "id": "116de5aa73d4c648"
+}
+
+--- OXWW ---
+{
+  "name": "OXWW",
+  "latitude": 48.381675,
+  "longitude": 1.993057,
+  "location_type": "gps_point",
+  "id": "b1072a58970bf8cc"
+}
+
+--- LFFF/OE ---
+{
+  "name": "LFFF/OE",
+  "latitude": 48.077778,
+  "longitude": 2.060833,
+  "location_type": "gps_point",
+  "id": "13a42bc3e22008b1"
+}
+
+--- BEVRO ---
+{
+  "name": "BEVRO",
+  "latitude": 47.605899,
+  "longitude": 2.186213,
+  "location_type": "gps_point",
+  "id": "030be158a3e13642"
+}
+
+--- LFFU - CHATEAUNEUF SUR CHER ---
+{
+  "name": "LFFU - CHATEAUNEUF SUR CHER",
+  "latitude": 46.871111,
+  "longitude": 2.376944,
+  "location_type": "aerodrome",
+  "icao_code": "LFFU",
+  "id": "6d64ca3e0c3fe274"
+}
+
+========================================================================
+  3. ROUTE
+========================================================================
+
+--- LFXU-LFFU ---
+{
+  "name": "LFXU-LFFU",
+  "waypoints": [
+    {
+      "waypoint_id": "ff2d4d5e5010aba6",
+      "sequence_order": 1,
+      "role": "departure"
+    },
+    {
+      "waypoint_id": "f64fef0efeb21ea5",
+      "sequence_order": 2,
+      "role": "enroute"
+    },
+    {
+      "waypoint_id": "d18df061c6145032",
+      "sequence_order": 3,
+      "role": "enroute"
+    },
+    {
+      "waypoint_id": "16534249a07f6400",
+      "sequence_order": 4,
+      "role": "enroute"
+    },
+    {
+      "waypoint_id": "116de5aa73d4c648",
+      "sequence_order": 5,
+      "role": "enroute"
+    },
+    {
+      "waypoint_id": "b1072a58970bf8cc",
+      "sequence_order": 6,
+      "role": "enroute"
+    },
+    {
+      "waypoint_id": "13a42bc3e22008b1",
+      "sequence_order": 7,
+      "role": "enroute"
+    },
+    {
+      "waypoint_id": "030be158a3e13642",
+      "sequence_order": 8,
+      "role": "enroute"
+    },
+    {
+      "waypoint_id": "6d64ca3e0c3fe274",
+      "sequence_order": 9,
+      "role": "arrival"
+    }
+  ],
+  "legs": [
+    {
+      "from_seq": 1,
+      "to_seq": 2,
+      "planned_altitude_ft": 1400
+    },
+    {
+      "from_seq": 2,
+      "to_seq": 3,
+      "planned_altitude_ft": 1400
+    },
+    {
+      "from_seq": 3,
+      "to_seq": 4,
+      "planned_altitude_ft": 1800
+    },
+    {
+      "from_seq": 4,
+      "to_seq": 5,
+      "planned_altitude_ft": 1800
+    },
+    {
+      "from_seq": 5,
+      "to_seq": 6,
+      "planned_altitude_ft": 2300
+    },
+    {
+      "from_seq": 6,
+      "to_seq": 7,
+      "planned_altitude_ft": 3100
+    },
+    {
+      "from_seq": 7,
+      "to_seq": 8,
+      "planned_altitude_ft": 3100
+    },
+    {
+      "from_seq": 8,
+      "to_seq": 9,
+      "planned_altitude_ft": 2900
+    }
+  ],
+  "created_at": "2026-02-02T14:51:53.438770Z"
+}
+
+========================================================================
+  4. AÉRODROMES
+========================================================================
+
+--- LFXU ---
+{
+  "icao": "LFXU",
+  "name": "LES MUREAUX",
+  "status": "CAP",
+  "vfr": true,
+  "private": false,
+  "latitude": 48.998611,
+  "longitude": 1.941667,
+  "elevation_ft": 259,
+  "runways": [
+    {
+      "designator": "08/26",
+      "length_m": 730,
+      "width_m": 50,
+      "is_main": true,
+      "surface": "HERBE"
+    }
+  ],
+  "services": [
+    {
+      "service_type": "AFIS",
+      "callsign": "LES MUREAUX",
+      "frequencies": [
+        {
+          "frequency_mhz": 123.5,
+          "spacing": "25"
+        }
+      ]
+    }
+  ],
+  "airac_cycle": "2603"
+}
+
+--- LFFU ---
+{
+  "icao": "LFFU",
+  "name": "CHATEAUNEUF SUR CHER",
+  "status": "CAP",
+  "vfr": true,
+  "private": false,
+  "latitude": 46.871111,
+  "longitude": 2.376944,
+  "elevation_ft": 548,
+  "runways": [
+    {
+      "designator": "02/20",
+      "length_m": 800,
+      "is_main": false,
+      "surface": "HERBE"
+    }
+  ],
+  "services": [],
+  "airac_cycle": "2603"
+}
+
+========================================================================
+  5. ANALYSE ESPACES AÉRIENS (8 legs)
+========================================================================
+
+--- RouteAirspaceAnalysis ---
+{
+  "route_id": "LFXU-LFFU",
+  "legs": [
+    {
+      "from_waypoint": "LFXU - LES MUREAUX",
+      "to_waypoint": "MOR1V",
+      "from_seq": 1,
+      "to_seq": 2,
+      "planned_altitude_ft": 1400,
+      "route_airspaces": [
+        {
+          "identifier": "TMA PARIS 1",
+          "airspace_type": "TMA",
+          "airspace_class": "D",
+          "lower_limit_ft": 1500,
+          "upper_limit_ft": 4500,
+          "intersection_type": "crosses",
+          "color_html": "#0066CC",
+          "services": [
+            {
+              "callsign": "PARIS APPROCHE",
+              "service_type": "APP",
+              "frequencies": [
+                {
+                  "frequency_mhz": "119.250",
+                  "spacing": "25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "identifier": "SIV PARIS",
+          "airspace_type": "SIV",
+          "lower_limit_ft": 0,
+          "upper_limit_ft": 5000,
+          "intersection_type": "inside",
+          "color_html": "#90EE90",
+          "services": [
+            {
+              "callsign": "PARIS INFO",
+              "service_type": "SIV",
+              "frequencies": [
+                {
+                  "frequency_mhz": "120.850",
+                  "spacing": "25"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "corridor_airspaces": []
+    },
+    {
+      "from_waypoint": "MOR1V",
+      "to_waypoint": "PXSW",
+      "from_seq": 2,
+      "to_seq": 3,
+      "planned_altitude_ft": 1400,
+      "route_airspaces": [
+        {
+          "identifier": "TMA PARIS 1",
+          "airspace_type": "TMA",
+          "airspace_class": "D",
+          "lower_limit_ft": 1500,
+          "upper_limit_ft": 4500,
+          "intersection_type": "crosses",
+          "color_html": "#0066CC",
+          "services": [
+            {
+              "callsign": "PARIS APPROCHE",
+              "service_type": "APP",
+              "frequencies": [
+                {
+                  "frequency_mhz": "119.250",
+                  "spacing": "25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "identifier": "SIV PARIS",
+          "airspace_type": "SIV",
+          "lower_limit_ft": 0,
+          "upper_limit_ft": 5000,
+          "intersection_type": "inside",
+          "color_html": "#90EE90",
+          "services": [
+            {
+              "callsign": "PARIS INFO",
+              "service_type": "SIV",
+              "frequencies": [
+                {
+                  "frequency_mhz": "120.850",
+                  "spacing": "25"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "corridor_airspaces": []
+    },
+    {
+      "from_waypoint": "PXSW",
+      "to_waypoint": "HOLAN",
+      "from_seq": 3,
+      "to_seq": 4,
+      "planned_altitude_ft": 1800,
+      "route_airspaces": [
+        {
+          "identifier": "TMA PARIS 1",
+          "airspace_type": "TMA",
+          "airspace_class": "D",
+          "lower_limit_ft": 1500,
+          "upper_limit_ft": 4500,
+          "intersection_type": "crosses",
+          "color_html": "#0066CC",
+          "services": [
+            {
+              "callsign": "PARIS APPROCHE",
+              "service_type": "APP",
+              "frequencies": [
+                {
+                  "frequency_mhz": "119.250",
+                  "spacing": "25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "identifier": "SIV PARIS",
+          "airspace_type": "SIV",
+          "lower_limit_ft": 0,
+          "upper_limit_ft": 5000,
+          "intersection_type": "inside",
+          "color_html": "#90EE90",
+          "services": [
+            {
+              "callsign": "PARIS INFO",
+              "service_type": "SIV",
+              "frequencies": [
+                {
+                  "frequency_mhz": "120.850",
+                  "spacing": "25"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "corridor_airspaces": []
+    },
+    {
+      "from_waypoint": "HOLAN",
+      "to_waypoint": "ARNOU",
+      "from_seq": 4,
+      "to_seq": 5,
+      "planned_altitude_ft": 1800,
+      "route_airspaces": [
+        {
+          "identifier": "TMA PARIS 1",
+          "airspace_type": "TMA",
+          "airspace_class": "D",
+          "lower_limit_ft": 1500,
+          "upper_limit_ft": 4500,
+          "intersection_type": "crosses",
+          "color_html": "#0066CC",
+          "services": [
+            {
+              "callsign": "PARIS APPROCHE",
+              "service_type": "APP",
+              "frequencies": [
+                {
+                  "frequency_mhz": "119.250",
+                  "spacing": "25"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "identifier": "SIV PARIS",
+          "airspace_type": "SIV",
+          "lower_limit_ft": 0,
+          "upper_limit_ft": 5000,
+          "intersection_type": "inside",
+          "color_html": "#90EE90",
+          "services": [
+            {
+              "callsign": "PARIS INFO",
+              "service_type": "SIV",
+              "frequencies": [
+                {
+                  "frequency_mhz": "120.850",
+                  "spacing": "25"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "corridor_airspaces": []
+    },
+    {
+      "from_waypoint": "ARNOU",
+      "to_waypoint": "OXWW",
+      "from_seq": 5,
+      "to_seq": 6,
+      "planned_altitude_ft": 2300,
+      "route_airspaces": [
+        {
+          "identifier": "SIV PARIS",
+          "airspace_type": "SIV",
+          "lower_limit_ft": 0,
+          "upper_limit_ft": 5000,
+          "intersection_type": "inside",
+          "color_html": "#90EE90",
+          "services": [
+            {
+              "callsign": "PARIS INFO",
+              "service_type": "SIV",
+              "frequencies": [
+                {
+                  "frequency_mhz": "120.850",
+                  "spacing": "25"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "corridor_airspaces": []
+    },
+    {
+      "from_waypoint": "OXWW",
+      "to_waypoint": "LFFF/OE",
+      "from_seq": 6,
+      "to_seq": 7,
+      "planned_altitude_ft": 3100,
+      "route_airspaces": [
+        {
+          "identifier": "SIV PARIS",
+          "airspace_type": "SIV",
+          "lower_limit_ft": 0,
+          "upper_limit_ft": 5000,
+          "intersection_type": "inside",
+          "color_html": "#90EE90",
+          "services": [
+            {
+              "callsign": "PARIS INFO",
+              "service_type": "SIV",
+              "frequencies": [
+                {
+                  "frequency_mhz": "120.850",
+                  "spacing": "25"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "corridor_airspaces": []
+    },
+    {
+      "from_waypoint": "LFFF/OE",
+      "to_waypoint": "BEVRO",
+      "from_seq": 7,
+      "to_seq": 8,
+      "planned_altitude_ft": 3100,
+      "route_airspaces": [
+        {
+          "identifier": "SIV PARIS",
+          "airspace_type": "SIV",
+          "lower_limit_ft": 0,
+          "upper_limit_ft": 5000,
+          "intersection_type": "inside",
+          "color_html": "#90EE90",
+          "services": [
+            {
+              "callsign": "PARIS INFO",
+              "service_type": "SIV",
+              "frequencies": [
+                {
+                  "frequency_mhz": "120.850",
+                  "spacing": "25"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "corridor_airspaces": []
+    },
+    {
+      "from_waypoint": "BEVRO",
+      "to_waypoint": "LFFU - CHATEAUNEUF SUR CHER",
+      "from_seq": 8,
+      "to_seq": 9,
+      "planned_altitude_ft": 2900,
+      "route_airspaces": [
+        {
+          "identifier": "SIV PARIS",
+          "airspace_type": "SIV",
+          "lower_limit_ft": 0,
+          "upper_limit_ft": 5000,
+          "intersection_type": "inside",
+          "color_html": "#90EE90",
+          "services": [
+            {
+              "callsign": "PARIS INFO",
+              "service_type": "SIV",
+              "frequencies": [
+                {
+                  "frequency_mhz": "120.850",
+                  "spacing": "25"
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "corridor_airspaces": []
+    }
+  ],
+  "analyzed_at": "2026-02-02T14:51:53.439747+00:00"
+}
+
+========================================================================
+  6. SIMULATION MÉTÉO
+========================================================================
+
+--- WeatherSimulation ---
+{
+  "route_id": "LFXU-LFFU",
+  "simulated_at": "2026-02-05T09:00:00Z",
+  "navigation_datetime": "2026-02-05T09:00:00Z",
+  "waypoints": [
+    {
+      "waypoint_name": "LFXU - LES MUREAUX",
+      "waypoint_index": 0,
+      "latitude": 48.998611,
+      "longitude": 1.941667,
+      "icao": "LFXU",
+      "estimated_time_utc": "2026-02-05T09:00:00Z"
+    },
+    {
+      "waypoint_name": "MOR1V",
+      "waypoint_index": 1,
+      "latitude": 48.941239,
+      "longitude": 1.953162,
+      "estimated_time_utc": "2026-02-05T09:07:00Z"
+    },
+    {
+      "waypoint_name": "PXSW",
+      "waypoint_index": 2,
+      "latitude": 48.834312,
+      "longitude": 1.930541,
+      "estimated_time_utc": "2026-02-05T09:14:00Z"
+    },
+    {
+      "waypoint_name": "HOLAN",
+      "waypoint_index": 3,
+      "latitude": 48.71056,
+      "longitude": 1.872139,
+      "estimated_time_utc": "2026-02-05T10:21:00Z"
+    },
+    {
+      "waypoint_name": "ARNOU",
+      "waypoint_index": 4,
+      "latitude": 48.552796,
+      "longitude": 1.931751,
+      "estimated_time_utc": "2026-02-05T10:28:00Z"
+    },
+    {
+      "waypoint_name": "OXWW",
+      "waypoint_index": 5,
+      "latitude": 48.381675,
+      "longitude": 1.993057,
+      "estimated_time_utc": "2026-02-05T10:35:00Z"
+    },
+    {
+      "waypoint_name": "LFFF/OE",
+      "waypoint_index": 6,
+      "latitude": 48.077778,
+      "longitude": 2.060833,
+      "estimated_time_utc": "2026-02-05T11:42:00Z"
+    },
+    {
+      "waypoint_name": "BEVRO",
+      "waypoint_index": 7,
+      "latitude": 47.605899,
+      "longitude": 2.186213,
+      "estimated_time_utc": "2026-02-05T11:49:00Z"
+    },
+    {
+      "waypoint_name": "LFFU - CHATEAUNEUF SUR CHER",
+      "waypoint_index": 8,
+      "latitude": 46.871111,
+      "longitude": 2.376944,
+      "icao": "LFFU",
+      "estimated_time_utc": "2026-02-05T11:56:00Z"
+    }
+  ],
+  "model_results": [
+    {
+      "model": "arome_france",
+      "model_run_time": "2026-02-05T00:00:00Z",
+      "points": [
+        {
+          "waypoint_index": 0,
+          "forecast": {
+            "temperature_2m": 8.0,
+            "temperature_levels": {
+              "1000": 10.0,
+              "925": 5.0,
+              "850": 1.0
+            },
+            "wind_speed_10m": 12.0,
+            "wind_direction_10m": 270,
+            "wind_speed_levels": {
+              "1000": 12.0,
+              "925": 18.0,
+              "850": 25.0
+            },
+            "wind_direction_levels": {
+              "1000": 270,
+              "925": 280,
+              "850": 290
+            },
+            "cloud_cover": 30,
+            "visibility": 8000,
+            "pressure_msl": 1018.0
+          },
+          "vfr_index": {
+            "status": "green",
+            "visibility_ok": true,
+            "ceiling_ok": true,
+            "wind_ok": true,
+            "details": "VMC confortable"
+          }
+        },
+        {
+          "waypoint_index": 1,
+          "forecast": {
+            "temperature_2m": 7.5,
+            "temperature_levels": {
+              "1000": 10.0,
+              "925": 5.0,
+              "850": 1.0
+            },
+            "wind_speed_10m": 12.0,
+            "wind_direction_10m": 270,
+            "wind_speed_levels": {
+              "1000": 12.0,
+              "925": 18.0,
+              "850": 25.0
+            },
+            "wind_direction_levels": {
+              "1000": 270,
+              "925": 280,
+              "850": 290
+            },
+            "cloud_cover": 35,
+            "visibility": 8000,
+            "pressure_msl": 1018.0
+          },
+          "vfr_index": {
+            "status": "green",
+            "visibility_ok": true,
+            "ceiling_ok": true,
+            "wind_ok": true,
+            "details": "VMC confortable"
+          }
+        },
+        {
+          "waypoint_index": 2,
+          "forecast": {
+            "temperature_2m": 7.0,
+            "temperature_levels": {
+              "1000": 10.0,
+              "925": 5.0,
+              "850": 1.0
+            },
+            "wind_speed_10m": 12.0,
+            "wind_direction_10m": 270,
+            "wind_speed_levels": {
+              "1000": 12.0,
+              "925": 18.0,
+              "850": 25.0
+            },
+            "wind_direction_levels": {
+              "1000": 270,
+              "925": 280,
+              "850": 290
+            },
+            "cloud_cover": 40,
+            "visibility": 8000,
+            "pressure_msl": 1018.0
+          },
+          "vfr_index": {
+            "status": "green",
+            "visibility_ok": true,
+            "ceiling_ok": true,
+            "wind_ok": true,
+            "details": "VMC confortable"
+          }
+        },
+        {
+          "waypoint_index": 3,
+          "forecast": {
+            "temperature_2m": 6.5,
+            "temperature_levels": {
+              "1000": 10.0,
+              "925": 5.0,
+              "850": 1.0
+            },
+            "wind_speed_10m": 12.0,
+            "wind_direction_10m": 270,
+            "wind_speed_levels": {
+              "1000": 12.0,
+              "925": 18.0,
+              "850": 25.0
+            },
+            "wind_direction_levels": {
+              "1000": 270,
+              "925": 280,
+              "850": 290
+            },
+            "cloud_cover": 45,
+            "visibility": 8000,
+            "pressure_msl": 1018.0
+          },
+          "vfr_index": {
+            "status": "green",
+            "visibility_ok": true,
+            "ceiling_ok": true,
+            "wind_ok": true,
+            "details": "VMC confortable"
+          }
+        },
+        {
+          "waypoint_index": 4,
+          "forecast": {
+            "temperature_2m": 6.0,
+            "temperature_levels": {
+              "1000": 10.0,
+              "925": 5.0,
+              "850": 1.0
+            },
+            "wind_speed_10m": 12.0,
+            "wind_direction_10m": 270,
+            "wind_speed_levels": {
+              "1000": 12.0,
+              "925": 18.0,
+              "850": 25.0
+            },
+            "wind_direction_levels": {
+              "1000": 270,
+              "925": 280,
+              "850": 290
+            },
+            "cloud_cover": 50,
+            "visibility": 8000,
+            "pressure_msl": 1018.0
+          },
+          "vfr_index": {
+            "status": "green",
+            "visibility_ok": true,
+            "ceiling_ok": true,
+            "wind_ok": true,
+            "details": "VMC confortable"
+          }
+        },
+        {
+          "waypoint_index": 5,
+          "forecast": {
+            "temperature_2m": 5.5,
+            "temperature_levels": {
+              "1000": 10.0,
+              "925": 5.0,
+              "850": 1.0
+            },
+            "wind_speed_10m": 12.0,
+            "wind_direction_10m": 270,
+            "wind_speed_levels": {
+              "1000": 12.0,
+              "925": 18.0,
+              "850": 25.0
+            },
+            "wind_direction_levels": {
+              "1000": 270,
+              "925": 280,
+              "850": 290
+            },
+            "cloud_cover": 55,
+            "visibility": 8000,
+            "pressure_msl": 1018.0
+          },
+          "vfr_index": {
+            "status": "green",
+            "visibility_ok": true,
+            "ceiling_ok": true,
+            "wind_ok": true,
+            "details": "VMC confortable"
+          }
+        },
+        {
+          "waypoint_index": 6,
+          "forecast": {
+            "temperature_2m": 5.0,
+            "temperature_levels": {
+              "1000": 10.0,
+              "925": 5.0,
+              "850": 1.0
+            },
+            "wind_speed_10m": 12.0,
+            "wind_direction_10m": 270,
+            "wind_speed_levels": {
+              "1000": 12.0,
+              "925": 18.0,
+              "850": 25.0
+            },
+            "wind_direction_levels": {
+              "1000": 270,
+              "925": 280,
+              "850": 290
+            },
+            "cloud_cover": 60,
+            "visibility": 8000,
+            "pressure_msl": 1018.0
+          },
+          "vfr_index": {
+            "status": "green",
+            "visibility_ok": true,
+            "ceiling_ok": true,
+            "wind_ok": true,
+            "details": "VMC confortable"
+          }
+        },
+        {
+          "waypoint_index": 7,
+          "forecast": {
+            "temperature_2m": 4.5,
+            "temperature_levels": {
+              "1000": 10.0,
+              "925": 5.0,
+              "850": 1.0
+            },
+            "wind_speed_10m": 12.0,
+            "wind_direction_10m": 270,
+            "wind_speed_levels": {
+              "1000": 12.0,
+              "925": 18.0,
+              "850": 25.0
+            },
+            "wind_direction_levels": {
+              "1000": 270,
+              "925": 280,
+              "850": 290
+            },
+            "cloud_cover": 65,
+            "visibility": 8000,
+            "pressure_msl": 1018.0
+          },
+          "vfr_index": {
+            "status": "green",
+            "visibility_ok": true,
+            "ceiling_ok": true,
+            "wind_ok": true,
+            "details": "VMC confortable"
+          }
+        },
+        {
+          "waypoint_index": 8,
+          "forecast": {
+            "temperature_2m": 4.0,
+            "temperature_levels": {
+              "1000": 10.0,
+              "925": 5.0,
+              "850": 1.0
+            },
+            "wind_speed_10m": 12.0,
+            "wind_direction_10m": 270,
+            "wind_speed_levels": {
+              "1000": 12.0,
+              "925": 18.0,
+              "850": 25.0
+            },
+            "wind_direction_levels": {
+              "1000": 270,
+              "925": 280,
+              "850": 290
+            },
+            "cloud_cover": 70,
+            "visibility": 8000,
+            "pressure_msl": 1018.0
+          },
+          "vfr_index": {
+            "status": "green",
+            "visibility_ok": true,
+            "ceiling_ok": true,
+            "wind_ok": true,
+            "details": "VMC confortable"
+          }
+        }
+      ]
+    }
+  ]
+}
+
+========================================================================
+  7. OBSERVATION METAR (enrichissement post-vol)
+========================================================================
+
+--- ObservationData LFXU ---
+{
+  "observation_time": "2026-02-05T09:00:00Z",
+  "icao": "LFXU",
+  "wind_direction": 270,
+  "wind_speed": 8.0,
+  "temperature": 9.0,
+  "dewpoint": 3.0,
+  "visibility": 9999,
+  "ceiling": 3500,
+  "clouds": [
+    {
+      "cover": "FEW",
+      "base_ft": 3500
+    }
+  ],
+  "flight_category": "VFR",
+  "altimeter": 1018.0,
+  "raw_metar": "LFXU 050900Z 27008KT 9999 FEW035 09/03 Q1018"
+}
+
+========================================================================
+  RÉSUMÉ
+========================================================================
+  Waypoints       : 9
+  Route legs      : 8
+  Aérodromes      : 2 (LFXU, LFFU)
+  Legs analysés   : 8
+  Points météo    : 9
+  Modèle          : AROME_FRANCE
+  Observation     : 1 METAR

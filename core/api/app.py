@@ -9,11 +9,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI
 
-# Load .env file from project root
+# Load .env file from project root (must be before other imports)
 load_dotenv()
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
-from core.api.routes import (
+from core.api.routes import (  # noqa: E402
     aerodromes,
     aircraft,
     airspaces,
@@ -23,7 +23,7 @@ from core.api.routes import (
     waypoints,
     weather,
 )
-from core.persistence.spatialite.db_manager import SpatiaLiteManager
+from core.persistence.spatialite.db_manager import SpatiaLiteManager  # noqa: E402
 
 
 @asynccontextmanager
