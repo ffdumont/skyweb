@@ -158,7 +158,15 @@ export default function AirspacesTab() {
     viewer.dataSources.add(airspaceDataSourceRef.current);
     viewer.dataSources.add(routeDataSourceRef.current);
 
+    // Force resize after initialization to fix grey screen issue
+    const resizeTimer = setTimeout(() => {
+      if (viewer && !viewer.isDestroyed()) {
+        viewer.resize();
+      }
+    }, 100);
+
     return () => {
+      clearTimeout(resizeTimer);
       if (viewerRef.current && !viewerRef.current.isDestroyed()) {
         viewerRef.current.destroy();
         viewerRef.current = null;
