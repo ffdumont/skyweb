@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from core.api.deps import get_current_user, get_waypoint_repo
 from core.contracts.waypoint import UserWaypoint
@@ -56,10 +56,11 @@ async def get_waypoint(
     return data
 
 
-@router.delete("/{waypoint_id}", status_code=204)
+@router.delete("/{waypoint_id}", status_code=204, response_class=Response)
 async def delete_waypoint(
     waypoint_id: str,
     user_id: str = Depends(get_current_user),
     repo: WaypointRepository = Depends(get_waypoint_repo),
-) -> None:
+) -> Response:
     await repo.delete(user_id, waypoint_id)
+    return Response(status_code=204)

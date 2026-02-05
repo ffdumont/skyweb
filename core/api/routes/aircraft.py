@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 
 from core.api.deps import get_aircraft_repo, get_current_user
 from core.contracts.aircraft import Aircraft
@@ -59,10 +59,11 @@ async def update_aircraft(
     return data
 
 
-@router.delete("/{aircraft_id}", status_code=204)
+@router.delete("/{aircraft_id}", status_code=204, response_class=Response)
 async def delete_aircraft(
     aircraft_id: str,
     user_id: str = Depends(get_current_user),
     repo: AircraftRepository = Depends(get_aircraft_repo),
-) -> None:
+) -> Response:
     await repo.delete(user_id, aircraft_id)
+    return Response(status_code=204)

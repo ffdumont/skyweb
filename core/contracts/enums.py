@@ -24,14 +24,36 @@ class WaypointSource(str, Enum):
     KML_IMPORT = "kml_import"
     MANUAL = "manual"
     GPX_TRACE = "gpx_trace"
+    ROUTE_CORRECTION = "route_correction"  # Intermediate waypoints added during altitude correction
 
 
-class FlightStatus(str, Enum):
+class DossierStatus(str, Enum):
+    """Lifecycle of a navigation dossier (flight preparation folder)."""
     DRAFT = "draft"
-    PLANNED = "planned"
+    PREPARING = "preparing"
     READY = "ready"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
+    ARCHIVED = "archived"
+
+
+class SectionId(str, Enum):
+    """Sections of a navigation dossier."""
+    ROUTE = "route"
+    AERODROMES = "aerodromes"
+    AIRSPACES = "airspaces"
+    NOTAM = "notam"
+    METEO = "meteo"
+    NAVIGATION = "navigation"
+    FUEL = "fuel"
+    PERFORMANCE = "performance"
+    DOCUMENTS = "documents"
+
+
+class SectionCompletion(str, Enum):
+    """Completion status of a dossier section."""
+    EMPTY = "empty"
+    PARTIAL = "partial"
+    COMPLETE = "complete"
+    ALERT = "alert"
 
 
 class TrackSource(str, Enum):

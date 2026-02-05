@@ -1,10 +1,9 @@
-"""Repository for routes and weather simulations (subcollection)."""
+"""Repository for routes."""
 
 from __future__ import annotations
 
 from core.contracts.route import Route
 from core.contracts.waypoint import UserWaypoint
-from core.contracts.weather import WeatherSimulation
 from core.persistence.firestore_client import get_firestore_client
 from core.persistence.repositories.base import BaseRepository
 
@@ -57,48 +56,3 @@ class RouteRepository(BaseRepository[Route]):
         await batch.commit()
         return route_id
 
-    # ------------------------------------------------------------------
-    # Subcollection: simulations
-    # ------------------------------------------------------------------
-
-    def _sim_collection(self, user_id: str, route_id: str):
-        return (
-            self._collection_ref(user_id)
-            .document(route_id)
-            .collection("simulations")
-        )
-
-    async def add_simulation(
-        self, user_id: str, route_id: str, simulation: WeatherSimulation
-    ) -> str:
-        """Add a weather simulation to a route. Returns the simulation ID."""
-        data = simulation.to_firestore()
-        data.pop("id", None)
-        ref = await self._sim_collection(user_id, route_id).add(data)
-        return ref[1].id
-
-    async def get_simulation(
-        self, user_id: str, route_id: str, simulation_id: str
-    ) -> WeatherSimulation | None:
-        """Fetch a single simulation."""
-        doc = await (
-            self._sim_collection(user_id, route_id)
-            .document(simulation_id)
-            .get()
-        )
-        if not doc.exists:
-            return None
-        data = doc.to_dict()
-        data["id"] = doc.id
-        return WeatherSimulation.from_firestore(data)
-
-    async def list_simulations(
-        self, user_id: str, route_id: str
-    ) -> list[WeatherSimulation]:
-        """List all simulations for a route."""
-        results: list[WeatherSimulation] = []
-        async for doc in self._sim_collection(user_id, route_id).stream():
-            data = doc.to_dict()
-            data["id"] = doc.id
-            results.append(WeatherSimulation.from_firestore(data))
-        return results

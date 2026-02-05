@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
 
 from core.adapters.kml_parser import build_route_from_kml
 from core.api.deps import (
@@ -178,7 +178,7 @@ async def upload_kml(
             latitude=cw.latitude,
             longitude=cw.longitude,
             location_type=LocationType.GPS_POINT,
-            source=WaypointSource.KML_IMPORT,
+            source=WaypointSource.ROUTE_CORRECTION if cw.is_intermediate else WaypointSource.KML_IMPORT,
         )
         waypoint_objects.append(wp)
 
@@ -222,22 +222,49 @@ async def get_route(
     route_id: str,
     user_id: str = Depends(get_current_user),
     repo: RouteRepository = Depends(get_route_repo),
+    wp_repo: WaypointRepository = Depends(get_waypoint_repo),
 ) -> dict:
     route = await repo.get(user_id, route_id)
     if route is None:
         raise HTTPException(status_code=404, detail="Route not found")
+
+    # Resolve waypoint coordinates
+    wp_ids = [ref.waypoint_id for ref in route.waypoints]
+    wp_map = await wp_repo.get_by_ids(user_id, wp_ids)
+
+    # Build coordinates list in sequence order
+    coordinates = []
+    for ref in sorted(route.waypoints, key=lambda r: r.sequence_order):
+        wp = wp_map.get(ref.waypoint_id)
+        if wp:
+            # Find altitude from legs
+            alt_ft = 0
+            for leg in route.legs:
+                if leg.to_seq == ref.sequence_order:
+                    alt_ft = leg.planned_altitude_ft
+                    break
+            coordinates.append({
+                "lat": wp.latitude,
+                "lon": wp.longitude,
+                "name": wp.name,
+                "altitude_ft": alt_ft,
+                "is_intermediate": wp.source == WaypointSource.ROUTE_CORRECTION,
+            })
+
     data = route.to_firestore()
     data["id"] = route_id
+    data["coordinates"] = coordinates
     return data
 
 
-@router.delete("/{route_id}", status_code=204)
+@router.delete("/{route_id}", status_code=204, response_class=Response)
 async def delete_route(
     route_id: str,
     user_id: str = Depends(get_current_user),
     repo: RouteRepository = Depends(get_route_repo),
-) -> None:
+) -> Response:
     await repo.delete(user_id, route_id)
+    return Response(status_code=204)
 
 
 @router.get("/{route_id}/ground-profile")
