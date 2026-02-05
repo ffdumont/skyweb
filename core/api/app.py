@@ -90,5 +90,30 @@ app.include_router(community.router, prefix="/api")
 
 @app.get("/api/health")
 async def health():
-    cycle = app.state.spatialite_manager.current_cycle
-    return {"status": "ok", "airac_cycle": cycle}
+    manager = app.state.spatialite_manager
+    result = {
+        "status": "ok",
+        "airac_cycle": manager.current_cycle,
+        "spatialite_ready": manager.is_ready,
+    }
+
+    # Verify SpatiaLite is functional
+    if manager.is_ready:
+        try:
+            conn = manager.get_connection()
+            try:
+                # Check SpatiaLite version
+                row = conn.execute("SELECT spatialite_version()").fetchone()
+                result["spatialite_version"] = row[0] if row else None
+
+                # Check if the main view exists and has data
+                row = conn.execute(
+                    "SELECT COUNT(*) FROM airspace_spatial_indexed"
+                ).fetchone()
+                result["airspace_count"] = row[0] if row else 0
+            finally:
+                conn.close()
+        except Exception as exc:
+            result["spatialite_error"] = str(exc)
+
+    return result
