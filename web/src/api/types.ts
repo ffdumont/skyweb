@@ -70,6 +70,7 @@ export interface ServiceInfo {
 export type AirspaceType =
   | "TMA"
   | "CTR"
+  | "CTA"
   | "SIV"
   | "D"
   | "R"
@@ -78,6 +79,8 @@ export type AirspaceType =
   | "CBA"
   | "AWY"
   | "FIR"
+  | "RMZ"
+  | "TMZ"
   | "OTHER";
 
 export type IntersectionType =

@@ -20,12 +20,17 @@ Ion.defaultServer = undefined;
 const TYPE_COLORS: Record<string, string> = {
   TMA: "#0078d7",
   CTR: "#004e92",
+  CTA: "#0066aa",
   SIV: "#228b22",
   D: "#c83232",
   R: "#c80000",
   P: "#b40000",
   TSA: "#ff9900",
+  CBA: "#ff6600",
+  AWY: "#9966cc",
   FIR: "#6464c8",
+  RMZ: "#009688",
+  TMZ: "#00796b",
   OTHER: "#888888",
 };
 
@@ -34,11 +39,16 @@ const FILL_COLORS: Record<string, Color> = {
   FIR: Color.fromCssColorString("rgba(100,100,200,0.08)"),
   TMA: Color.fromCssColorString("rgba(0,120,215,0.15)"),
   CTR: Color.fromCssColorString("rgba(0,80,180,0.20)"),
+  CTA: Color.fromCssColorString("rgba(0,100,170,0.15)"),
   SIV: Color.fromCssColorString("rgba(34,139,34,0.12)"),
   D: Color.fromCssColorString("rgba(200,50,50,0.18)"),
   R: Color.fromCssColorString("rgba(200,0,0,0.22)"),
   P: Color.fromCssColorString("rgba(180,0,0,0.28)"),
-  TSA: Color.fromCssColorString("rgba(255,153,0,0.15)"),
+  TSA: Color.fromCssColorString("rgba(255,153,0,0.18)"),
+  CBA: Color.fromCssColorString("rgba(255,102,0,0.18)"),
+  AWY: Color.fromCssColorString("rgba(153,102,204,0.12)"),
+  RMZ: Color.fromCssColorString("rgba(0,150,136,0.15)"),
+  TMZ: Color.fromCssColorString("rgba(0,121,107,0.18)"),
 };
 
 const OUTLINE_COLORS: Record<string, Color> = {
@@ -61,6 +71,7 @@ export default function AirspacesTab() {
   const airspaceAnalysis = useDossierStore((s) => s.airspaceAnalysis);
   const airspaceSelection = useDossierStore((s) => s.airspaceSelection);
   const airspaceLoading = useDossierStore((s) => s.airspaceLoading);
+  const airspaceError = useDossierStore((s) => s.airspaceError);
   const loadAirspaceAnalysis = useDossierStore((s) => s.loadAirspaceAnalysis);
   const toggleAirspace = useDossierStore((s) => s.toggleAirspace);
   const toggleAllAirspaces = useDossierStore((s) => s.toggleAllAirspaces);
@@ -72,12 +83,12 @@ export default function AirspacesTab() {
   const routeDataSourceRef = useRef<CustomDataSource | null>(null);
   const [isViewerReady, setIsViewerReady] = useState(false);
 
-  // Load analysis when tab opens
+  // Load analysis when tab opens (don't retry on error)
   useEffect(() => {
-    if (currentRouteId && !airspaceAnalysis && !airspaceLoading) {
+    if (currentRouteId && !airspaceAnalysis && !airspaceLoading && !airspaceError) {
       loadAirspaceAnalysis(currentRouteId);
     }
-  }, [currentRouteId, airspaceAnalysis, airspaceLoading, loadAirspaceAnalysis]);
+  }, [currentRouteId, airspaceAnalysis, airspaceLoading, airspaceError, loadAirspaceAnalysis]);
 
   // Flatten all unique route_airspaces
   const allAirspaces = useMemo(() => {
@@ -370,6 +381,12 @@ export default function AirspacesTab() {
       >
         {airspaceLoading ? (
           <div style={{ padding: 24, color: "#888" }}>Chargement de l'analyse...</div>
+        ) : airspaceError ? (
+          <div style={{ padding: 24, color: "#c00" }}>
+            Erreur : {airspaceError}
+            <br />
+            <small style={{ color: "#888" }}>Vérifiez que le serveur backend est démarré.</small>
+          </div>
         ) : (
           <>
             {/* Airspaces header with select all */}

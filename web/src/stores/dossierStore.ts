@@ -84,6 +84,7 @@ interface DossierState {
   airspaceAnalysis: RouteAirspaceAnalysis | null;
   airspaceSelection: Record<string, boolean>; // key: "{identifier}_{partie_id}"
   airspaceLoading: boolean;
+  airspaceError: string | null;
 
   startWizard: () => void;
   cancelWizard: () => void;
@@ -120,6 +121,7 @@ export const useDossierStore = create<DossierState>((set, get) => ({
   airspaceAnalysis: null,
   airspaceSelection: {},
   airspaceLoading: false,
+  airspaceError: null,
 
   startWizard: () =>
     set({ viewMode: "wizard", wizard: { ...initialWizard } }),
@@ -235,6 +237,7 @@ export const useDossierStore = create<DossierState>((set, get) => ({
       airspaceAnalysis: null,
       airspaceSelection: {},
       airspaceLoading: false,
+      airspaceError: null,
     });
 
     // Load route data if routeId is provided
@@ -278,6 +281,7 @@ export const useDossierStore = create<DossierState>((set, get) => ({
       airspaceAnalysis: null,
       airspaceSelection: {},
       airspaceLoading: false,
+      airspaceError: null,
     }),
 
   setTab: (tab) => set({ activeTab: tab }),
@@ -299,7 +303,7 @@ export const useDossierStore = create<DossierState>((set, get) => ({
     // Don't reload if already loaded for this route
     if (airspaceAnalysis?.route_id === routeId) return;
 
-    set({ airspaceLoading: true });
+    set({ airspaceLoading: true, airspaceError: null });
     try {
       const analysis = await api.getRouteAnalysis(routeId);
 
@@ -316,9 +320,13 @@ export const useDossierStore = create<DossierState>((set, get) => ({
         airspaceAnalysis: analysis,
         airspaceSelection: selection,
         airspaceLoading: false,
+        airspaceError: null,
       });
-    } catch {
-      set({ airspaceLoading: false });
+    } catch (err) {
+      set({
+        airspaceLoading: false,
+        airspaceError: err instanceof Error ? err.message : "Failed to load airspace analysis",
+      });
     }
   },
 

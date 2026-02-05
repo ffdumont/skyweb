@@ -86,6 +86,7 @@ class CloudCover(str, Enum):
 class AirspaceType(str, Enum):
     TMA = "TMA"
     CTR = "CTR"
+    CTA = "CTA"
     SIV = "SIV"
     D = "D"
     R = "R"
@@ -94,6 +95,8 @@ class AirspaceType(str, Enum):
     CBA = "CBA"
     AWY = "AWY"
     FIR = "FIR"
+    RMZ = "RMZ"
+    TMZ = "TMZ"
     OTHER = "OTHER"
 
 

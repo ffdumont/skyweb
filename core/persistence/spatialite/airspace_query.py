@@ -29,6 +29,21 @@ _TYPE_MAP: dict[str, AirspaceType] = {
     "CBA": AirspaceType.CBA,
     "AWY": AirspaceType.AWY,
     "FIR": AirspaceType.FIR,
+    "RMZ": AirspaceType.RMZ,
+    "TMZ": AirspaceType.TMZ,
+    "CTA": AirspaceType.CTA,
+}
+
+# SIA airspace types to exclude from VFR analysis (IFR/high-level only).
+_EXCLUDED_TYPES: set[str] = {
+    "CTL",   # Control sectors (ATC sectors, not relevant for VFR)
+    "ACC",   # Area Control Center
+    "UAC",   # Upper Area Control
+    "UIR",   # Upper Information Region (above FL195)
+    "UTA",   # Upper Traffic Area
+    "FRA",   # Free Route Airspace (IFR concept)
+    "LTA",   # Lower Traffic Area (IFR)
+    "OCA",   # Oceanic Control Area
 }
 
 
@@ -149,12 +164,18 @@ class AirspaceQueryService:
 
         results: list[AirspaceIntersection] = []
         for row in rows:
+            # Skip excluded types (IFR/high-level only)
+            if row["espace_type"] in _EXCLUDED_TYPES:
+                continue
+
             # Determine intersection type (crosses vs inside)
             intersection_type = self._classify_intersection(
                 conn, lat1, lon1, lat2, lon2, row["partie_pk"]
             )
 
-            services = self._get_services(conn, row["espace_pk"])
+            services = self._get_services(
+                conn, row["espace_pk"], row["espace_nom"], row["espace_type"]
+            )
 
             # Parse GeoJSON geometry
             geometry_geojson = None
@@ -273,46 +294,87 @@ class AirspaceQueryService:
                 volume_id=str(row["volume_pk"]),
             )
             for row in rows
+            if row["espace_type"] not in _EXCLUDED_TYPES
         ]
 
     def _get_services(
-        self, conn: sqlite3.Connection, espace_pk: int | None
+        self,
+        conn: sqlite3.Connection,
+        espace_pk: int | None,
+        espace_nom: str | None = None,
+        espace_type: str | None = None,
     ) -> list[ServiceInfo]:
         """Fetch ATC services and frequencies for an airspace.
 
+        For SIV/TMA types without direct services, falls back to name-based lookup.
         Returns empty list if services lookup fails (graceful degradation).
         """
-        if espace_pk is None:
-            return []
+        rows: list = []
 
-        try:
-            rows = conn.execute(
-                """
-                SELECT s.IndicLieu, s.IndicService,
-                       f.Frequence, f.Espacement
-                FROM Service s
-                LEFT JOIN Frequence f ON f.ServiceRef = s.pk
-                WHERE s.EspaceRef = ?
-                """,
-                (espace_pk,),
-            ).fetchall()
-        except sqlite3.OperationalError as e:
-            # Schema mismatch - try with original column names
-            logger.warning("Service lookup failed with EspaceRef, trying Espace_pk: %s", e)
+        # Strategy 1: Direct link via EspaceRef
+        if espace_pk is not None:
             try:
                 rows = conn.execute(
                     """
                     SELECT s.IndicLieu, s.IndicService,
                            f.Frequence, f.Espacement
                     FROM Service s
-                    LEFT JOIN Frequence f ON f.Service_pk = s.pk
-                    WHERE s.Espace_pk = ?
+                    LEFT JOIN Frequence f ON f.ServiceRef = s.pk
+                    WHERE s.EspaceRef = ?
                     """,
                     (espace_pk,),
                 ).fetchall()
-            except sqlite3.OperationalError:
-                logger.warning("Service lookup unavailable for espace_pk=%s", espace_pk)
-                return []
+            except sqlite3.OperationalError as e:
+                logger.warning("Service lookup failed with EspaceRef: %s", e)
+
+        # Strategy 2: Name-based fallback for SIV/TMA without direct services
+        if not rows and espace_nom and espace_type in ("SIV", "TMA"):
+            service_type = "Information" if espace_type == "SIV" else "Approche"
+            # Extract sector suffix if present (e.g., "PARIS NORD" → sector "NORD")
+            sector_filter = None
+            parent_name = espace_nom
+            if " " in espace_nom:
+                parts = espace_nom.split()
+                parent_name = parts[0]
+                sector_filter = parts[-1].upper()  # Last word as sector (NORD, SUD, OUEST, etc.)
+
+            # Try exact match first
+            try:
+                rows = conn.execute(
+                    """
+                    SELECT s.IndicLieu, s.IndicService,
+                           f.Frequence, f.Espacement, f.SecteurSituation
+                    FROM Service s
+                    LEFT JOIN Frequence f ON f.ServiceRef = s.pk
+                    WHERE UPPER(s.IndicLieu) = UPPER(?)
+                      AND s.IndicService = ?
+                    """,
+                    (espace_nom, service_type),
+                ).fetchall()
+            except sqlite3.OperationalError as e:
+                logger.debug("Exact name service lookup failed: %s", e)
+
+            # Fallback to parent name with sector filtering
+            if not rows and parent_name != espace_nom:
+                try:
+                    all_rows = conn.execute(
+                        """
+                        SELECT s.IndicLieu, s.IndicService,
+                               f.Frequence, f.Espacement, f.SecteurSituation
+                        FROM Service s
+                        LEFT JOIN Frequence f ON f.ServiceRef = s.pk
+                        WHERE UPPER(s.IndicLieu) = UPPER(?)
+                          AND s.IndicService = ?
+                        """,
+                        (parent_name, service_type),
+                    ).fetchall()
+                    # Filter by sector if available
+                    if sector_filter and all_rows:
+                        rows = [r for r in all_rows if r["SecteurSituation"] and sector_filter in r["SecteurSituation"].upper()]
+                    if not rows:
+                        rows = all_rows  # Fallback to all if no sector match
+                except sqlite3.OperationalError as e:
+                    logger.debug("Parent name service lookup failed: %s", e)
 
         services: dict[str, ServiceInfo] = {}
         for row in rows:
