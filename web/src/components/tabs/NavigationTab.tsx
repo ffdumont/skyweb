@@ -228,17 +228,12 @@ export default function NavigationTab() {
                 <td style={{ ...tdStyle, fontSize: 12 }}>
                   {entry.frequencies.length > 0 ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                      {entry.frequencies.slice(0, 2).map((freq, j) => (
+                      {entry.frequencies.map((freq, j) => (
                         <div key={j}>
                           <span style={{ color: "#555" }}>{freq.callsign}</span>
                           <span style={{ color: "#0066cc", marginLeft: 6 }}>{freq.frequency}</span>
                         </div>
                       ))}
-                      {entry.frequencies.length > 2 && (
-                        <span style={{ color: "#888", fontSize: 11 }}>
-                          +{entry.frequencies.length - 2} autres
-                        </span>
-                      )}
                     </div>
                   ) : (
                     <span style={{ color: "#ccc" }}>—</span>
@@ -371,13 +366,10 @@ function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: stri
   const frequencies: { callsign: string; frequency: string; priority: number }[] = [];
   const seen = new Set<string>();
 
-  // Collect from both route_airspaces and corridor_airspaces
-  const allAirspaces = [
-    ...(legAirspaces.route_airspaces || []),
-    ...(legAirspaces.corridor_airspaces || []),
-  ];
+  // Only use route_airspaces (airspaces actually traversed), not corridor_airspaces
+  const airspaces = legAirspaces.route_airspaces || [];
 
-  for (const airspace of allAirspaces) {
+  for (const airspace of airspaces) {
     for (const service of airspace.services) {
       const priority = SERVICE_TYPE_PRIORITY[service.service_type];
       if (priority === undefined) continue; // Skip irrelevant services
