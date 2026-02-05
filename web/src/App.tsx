@@ -7,6 +7,7 @@ import SummaryTab from "./components/tabs/SummaryTab";
 import RouteTab from "./components/tabs/RouteTab";
 import AerodromesTab from "./components/tabs/AerodromesTab";
 import AirspacesTab from "./components/tabs/AirspacesTab";
+import MeteoTab from "./components/tabs/MeteoTab";
 import PlaceholderTab from "./components/tabs/PlaceholderTab";
 
 function TabContent() {
@@ -37,21 +38,7 @@ function TabContent() {
         />
       );
     case "meteo":
-      return (
-        <PlaceholderTab
-          title="Météo"
-          description="Analyse de la situation météorologique : METAR/TAF, vents en altitude, températures, cartes TEMSI, évaluation VMC."
-          items={[
-            "METAR / TAF des AD concernés",
-            "Vents en altitude par segment (WINTEM)",
-            "Température par altitude",
-            "Plafond nuageux, visibilité",
-            "Cartes TEMSI",
-            "Décision Go/No-Go météo",
-          ]}
-          status="planned"
-        />
-      );
+      return <MeteoTab />;
     case "navigation":
       return (
         <PlaceholderTab
