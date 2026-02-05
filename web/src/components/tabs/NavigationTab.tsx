@@ -364,7 +364,7 @@ function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: stri
   if (!legAirspaces) return [];
 
   const frequencies: { callsign: string; frequency: string; priority: number }[] = [];
-  const seen = new Set<string>();
+  const seenCallsigns = new Set<string>(); // Only one frequency per callsign
 
   // Only use route_airspaces (airspaces actually traversed), not corridor_airspaces
   const airspaces = legAirspaces.route_airspaces || [];
@@ -374,13 +374,20 @@ function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: stri
       const priority = SERVICE_TYPE_PRIORITY[service.service_type];
       if (priority === undefined) continue; // Skip irrelevant services
 
-      for (const freq of service.frequencies) {
-        const key = `${service.callsign}-${freq.frequency_mhz}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
+      // Skip if we already have a frequency for this callsign
+      if (seenCallsigns.has(service.callsign)) continue;
+
+      // Find the first VHF frequency (118-137 MHz range)
+      const vhfFreq = service.frequencies.find((f) => {
+        const mhz = parseFloat(f.frequency_mhz);
+        return mhz >= 118 && mhz <= 137;
+      });
+
+      if (vhfFreq) {
+        seenCallsigns.add(service.callsign);
         frequencies.push({
           callsign: service.callsign,
-          frequency: freq.frequency_mhz,
+          frequency: vhfFreq.frequency_mhz,
           priority,
         });
       }
