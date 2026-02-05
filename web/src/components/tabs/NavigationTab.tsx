@@ -67,7 +67,7 @@ export default function NavigationTab() {
 
     for (let i = 0; i < routeData.segments.length; i++) {
       const seg = routeData.segments[i];
-      const legAirspaces = findLegAirspaces(airspaceAnalysis?.legs, seg);
+      const legAirspaces = findLegAirspaces(airspaceAnalysis?.legs, seg, i);
       const frequencies = extractFrequencies(legAirspaces);
 
       // Get wind data for drift calculation if simulation available
@@ -334,12 +334,29 @@ function formatAltitude(ft: number): string {
 
 function findLegAirspaces(
   legs: LegAirspaces[] | undefined,
-  segment: SegmentData
+  segment: SegmentData,
+  segmentIndex: number
 ): LegAirspaces | null {
-  if (!legs) return null;
-  return legs.find(
+  if (!legs || legs.length === 0) return null;
+
+  // Try exact name match first
+  const byName = legs.find(
     (leg) => leg.from_waypoint === segment.from && leg.to_waypoint === segment.to
-  ) ?? null;
+  );
+  if (byName) return byName;
+
+  // Fallback: match by sequence index (segment i = from_seq i to to_seq i+1)
+  const bySeq = legs.find(
+    (leg) => leg.from_seq === segmentIndex && leg.to_seq === segmentIndex + 1
+  );
+  if (bySeq) return bySeq;
+
+  // Last resort: use segment at same index if available
+  if (segmentIndex < legs.length) {
+    return legs[segmentIndex];
+  }
+
+  return null;
 }
 
 function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: string; frequency: string }[] {
@@ -348,8 +365,13 @@ function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: stri
   const frequencies: { callsign: string; frequency: string; priority: number }[] = [];
   const seen = new Set<string>();
 
-  // Collect from route_airspaces
-  for (const airspace of legAirspaces.route_airspaces) {
+  // Collect from both route_airspaces and corridor_airspaces
+  const allAirspaces = [
+    ...(legAirspaces.route_airspaces || []),
+    ...(legAirspaces.corridor_airspaces || []),
+  ];
+
+  for (const airspace of allAirspaces) {
     for (const service of airspace.services) {
       const priority = RELEVANT_SERVICE_TYPES.indexOf(service.service_type);
       if (priority === -1) continue; // Skip irrelevant services
