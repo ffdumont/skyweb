@@ -177,9 +177,10 @@ export default function AirspacesTab() {
           terrainProvider: undefined,
         });
 
-        // Add OSM imagery
+        // Add OSM imagery (max zoom 19 to avoid CORS errors)
         const osmProvider = new OpenStreetMapImageryProvider({
           url: "https://tile.openstreetmap.org/",
+          maximumLevel: 19,
         });
         viewer.imageryLayers.addImageryProvider(osmProvider);
 

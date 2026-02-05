@@ -44,6 +44,7 @@ export default function CesiumGlobe({ children: _children, onViewerReady }: Prop
     viewer.imageryLayers.removeAll();
     const osmProvider = new OpenStreetMapImageryProvider({
       url: "https://tile.openstreetmap.org/",
+      maximumLevel: 19, // OSM doesn't support zoom > 19 and blocks CORS at higher levels
     });
     viewer.imageryLayers.addImageryProvider(osmProvider);
 
