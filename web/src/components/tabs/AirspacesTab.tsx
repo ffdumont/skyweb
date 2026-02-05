@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useCallback } from "react";
+import { useEffect, useMemo, useRef, useCallback, useState } from "react";
 import {
   Viewer as CesiumViewer,
   OpenStreetMapImageryProvider,
@@ -12,8 +12,10 @@ import "cesium/Build/Cesium/Widgets/widgets.css";
 import { useDossierStore } from "../../stores/dossierStore";
 import type { AirspaceIntersection, LegAirspaces } from "../../api/types";
 
-// Disable Cesium Ion
-Ion.defaultAccessToken = "";
+// Completely disable Cesium Ion to avoid 401 errors
+Ion.defaultAccessToken = undefined as any;
+// @ts-ignore - Disable Ion server completely
+Ion.defaultServer = undefined;
 
 const TYPE_COLORS: Record<string, string> = {
   TMA: "#0078d7",
@@ -68,6 +70,7 @@ export default function AirspacesTab() {
   const viewerRef = useRef<CesiumViewer | null>(null);
   const airspaceDataSourceRef = useRef<CustomDataSource | null>(null);
   const routeDataSourceRef = useRef<CustomDataSource | null>(null);
+  const [isViewerReady, setIsViewerReady] = useState(false);
 
   // Load analysis when tab opens
   useEffect(() => {
@@ -122,60 +125,131 @@ export default function AirspacesTab() {
 
   // Initialize Cesium viewer
   useEffect(() => {
-    if (!containerRef.current || viewerRef.current) return;
+    const container = containerRef.current;
+    if (!container) return;
 
-    const viewer = new CesiumViewer(containerRef.current, {
-      baseLayerPicker: false,
-      geocoder: false,
-      homeButton: false,
-      sceneModePicker: false,
-      navigationHelpButton: false,
-      animation: false,
-      timeline: false,
-      fullscreenButton: false,
-      selectionIndicator: false,
-      infoBox: true,
-    });
+    // Skip if viewer already exists
+    if (viewerRef.current) return;
 
-    // Remove default imagery and add OSM
-    viewer.imageryLayers.removeAll();
-    const osmProvider = new OpenStreetMapImageryProvider({
-      url: "https://tile.openstreetmap.org/",
-    });
-    viewer.imageryLayers.addImageryProvider(osmProvider);
+    // Skip if Cesium already in DOM (StrictMode recovery)
+    if (container.querySelector('.cesium-viewer')) return;
 
-    // Fly to France
-    viewer.camera.flyTo({
-      destination: Cartesian3.fromDegrees(2.3, 46.6, 800_000),
-      duration: 0,
-    });
+    // Check container has dimensions
+    const rect = container.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      const timer = setTimeout(() => {
+        if (!viewerRef.current) initializeViewer();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
 
-    viewerRef.current = viewer;
+    initializeViewer();
 
-    // Create data sources
-    airspaceDataSourceRef.current = new CustomDataSource("airspaces");
-    routeDataSourceRef.current = new CustomDataSource("route");
-    viewer.dataSources.add(airspaceDataSourceRef.current);
-    viewer.dataSources.add(routeDataSourceRef.current);
+    function initializeViewer() {
+      if (!container || viewerRef.current) return;
+      if (container.querySelector('.cesium-viewer')) return;
 
-    // Force resize after initialization to fix grey screen issue
-    const resizeTimer = setTimeout(() => {
-      if (viewer && !viewer.isDestroyed()) {
-        viewer.resize();
+      try {
+        const viewer = new CesiumViewer(container, {
+          baseLayerPicker: false,
+          geocoder: false,
+          homeButton: false,
+          sceneModePicker: false,
+          navigationHelpButton: false,
+          animation: false,
+          timeline: false,
+          fullscreenButton: false,
+          selectionIndicator: false,
+          infoBox: true,
+          // Disable Cesium Ion to avoid 401 errors
+          imageryProvider: false as any,
+          baseLayer: false as any,
+          terrainProvider: undefined,
+          skyBox: false as any,
+          skyAtmosphere: false as any,
+        });
+
+        // Add OSM imagery
+        const osmProvider = new OpenStreetMapImageryProvider({
+          url: "https://tile.openstreetmap.org/",
+        });
+        viewer.imageryLayers.addImageryProvider(osmProvider);
+
+        // Fly to France
+        viewer.camera.flyTo({
+          destination: Cartesian3.fromDegrees(2.3, 46.6, 800_000),
+          duration: 0,
+        });
+
+        viewerRef.current = viewer;
+
+        // Create data sources
+        airspaceDataSourceRef.current = new CustomDataSource("airspaces");
+        routeDataSourceRef.current = new CustomDataSource("route");
+        viewer.dataSources.add(airspaceDataSourceRef.current);
+        viewer.dataSources.add(routeDataSourceRef.current);
+
+        // Store initial dimensions for StrictMode fallback
+        const initialWidth = rect.width;
+        const initialHeight = rect.height;
+
+        // Force canvas size after frame (handles StrictMode dimension issues)
+        const forceResize = (attempt: number) => {
+          if (viewer.isDestroyed()) return;
+
+          const currentContainer = containerRef.current;
+          const containerRect = currentContainer?.getBoundingClientRect() || { width: 0, height: 0 };
+          const targetWidth = containerRect.width > 0 ? containerRect.width : initialWidth;
+          const targetHeight = containerRect.height > 0 ? containerRect.height : initialHeight;
+
+          // Force canvas dimensions if they're 0
+          if (viewer.canvas.width === 0 || viewer.canvas.height === 0) {
+            if (targetWidth > 0 && targetHeight > 0) {
+              viewer.canvas.width = targetWidth;
+              viewer.canvas.height = targetHeight;
+            }
+          }
+
+          // Always ensure canvas has CSS dimensions
+          if (targetWidth > 0 && targetHeight > 0) {
+            viewer.canvas.style.width = targetWidth + "px";
+            viewer.canvas.style.height = targetHeight + "px";
+          }
+
+          viewer.resize();
+
+          if (viewer.canvas.width === 0 || viewer.canvas.height === 0) {
+            if (attempt < 10) {
+              setTimeout(() => forceResize(attempt + 1), 50);
+            } else {
+              setIsViewerReady(true);
+            }
+          } else {
+            viewer.scene.requestRender();
+            setIsViewerReady(true);
+          }
+        };
+
+        requestAnimationFrame(() => forceResize(1));
+      } catch (error) {
+        console.error("[Cesium] Failed to create viewer:", error);
       }
-    }, 100);
+    }
 
     return () => {
-      clearTimeout(resizeTimer);
       if (viewerRef.current && !viewerRef.current.isDestroyed()) {
         viewerRef.current.destroy();
         viewerRef.current = null;
+        airspaceDataSourceRef.current = null;
+        routeDataSourceRef.current = null;
+        setIsViewerReady(false);
       }
     };
   }, []);
 
   // Update route display
   useEffect(() => {
+    if (!isViewerReady) return;
     const ds = routeDataSourceRef.current;
     if (!ds) return;
 
@@ -222,10 +296,11 @@ export default function AirspacesTab() {
         });
       }
     });
-  }, [routeData]);
+  }, [routeData, isViewerReady]);
 
   // Update airspace display
   const updateAirspaces = useCallback(() => {
+    if (!isViewerReady) return;
     const ds = airspaceDataSourceRef.current;
     if (!ds) return;
 
@@ -272,19 +347,15 @@ export default function AirspacesTab() {
         });
       }
     }
-  }, [allAirspaces, selectedKeys]);
+  }, [allAirspaces, selectedKeys, isViewerReady]);
 
   useEffect(() => {
     updateAirspaces();
   }, [updateAirspaces]);
 
-  if (airspaceLoading) {
-    return <div style={{ padding: 24, color: "#888" }}>Chargement de l'analyse...</div>;
-  }
-
   return (
     <div style={{ display: "flex", height: "100%" }}>
-      {/* 3D Cesium Map */}
+      {/* 3D Cesium Map - ALWAYS mounted to prevent destroy/recreate cycles */}
       <div
         ref={containerRef}
         style={{ flex: "1 1 50%", position: "relative", minHeight: 300 }}
@@ -300,8 +371,12 @@ export default function AirspacesTab() {
           padding: 16,
         }}
       >
-        {/* Airspaces header with select all */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        {airspaceLoading ? (
+          <div style={{ padding: 24, color: "#888" }}>Chargement de l'analyse...</div>
+        ) : (
+          <>
+            {/* Airspaces header with select all */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600 }}>
             Zones traversées ({selectedCount}/{totalCount})
           </h3>
@@ -383,6 +458,8 @@ export default function AirspacesTab() {
               </table>
             </div>
           ))
+        )}
+          </>
         )}
       </div>
     </div>
