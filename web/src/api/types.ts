@@ -140,6 +140,7 @@ export interface WaypointForecastInput {
   lat: number;
   lon: number;
   icao?: string | null;
+  altitude_ft?: number | null; // Planned altitude at this waypoint
 }
 
 export interface SimulationRequest {
@@ -156,6 +157,7 @@ export interface WaypointContext {
   latitude: number;
   longitude: number;
   icao: string | null;
+  altitude_ft: number;
   estimated_time_utc: string;
 }
 

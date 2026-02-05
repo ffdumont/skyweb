@@ -122,15 +122,15 @@ class WeatherService:
         if not models:
             models = ["arome", "ecmwf"]
 
-        # Calculate passage times for each waypoint
+        # Calculate passage times for each waypoint (with per-waypoint altitude)
         waypoint_contexts = self._calculate_passage_times(
-            waypoints, departure_datetime, cruise_speed_kt
+            waypoints, departure_datetime, cruise_speed_kt, cruise_altitude_ft
         )
 
-        # Query each model in parallel
+        # Query each model in parallel (altitude now in waypoint contexts)
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             tasks = [
-                self._query_model(client, model_id, waypoint_contexts, cruise_altitude_ft)
+                self._query_model(client, model_id, waypoint_contexts)
                 for model_id in models
             ]
             model_results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -156,6 +156,7 @@ class WeatherService:
         waypoints: list[dict[str, Any]],
         departure_datetime: datetime,
         cruise_speed_kt: float,
+        default_altitude_ft: int,
     ) -> list[WaypointContext]:
         """Calculate estimated passage times for each waypoint."""
         from math import atan2, cos, radians, sin, sqrt
@@ -180,6 +181,8 @@ class WeatherService:
                 cumulative_time += timedelta(hours=time_hours)
 
             passage_time = departure_datetime + cumulative_time
+            # Use per-waypoint altitude if provided, otherwise default
+            altitude_ft = wp.get("altitude_ft") or default_altitude_ft
 
             contexts.append(
                 WaypointContext(
@@ -188,6 +191,7 @@ class WeatherService:
                     latitude=wp["lat"],
                     longitude=wp["lon"],
                     icao=wp.get("icao"),
+                    altitude_ft=altitude_ft,
                     estimated_time_utc=passage_time,
                 )
             )
@@ -199,29 +203,32 @@ class WeatherService:
         client: httpx.AsyncClient,
         model_id: str,
         waypoints: list[WaypointContext],
-        cruise_altitude_ft: int,
     ) -> ModelResult:
-        """Query Open-Meteo for a single model across all waypoints."""
+        """Query Open-Meteo for a single model across all waypoints.
+
+        Each waypoint is queried with its specific altitude's pressure level.
+        """
         model_config = MODELS[model_id]
 
-        # Build variables list
-        variables = FORECAST_VARIABLES.copy()
+        # Build base variables list
+        base_variables = FORECAST_VARIABLES.copy()
         if "extra_vars" in model_config:
-            variables.extend(model_config["extra_vars"])
+            base_variables.extend(model_config["extra_vars"])
 
-        # Determine pressure level for cruise altitude
-        pressure_level = self._altitude_to_pressure(cruise_altitude_ft)
-
-        # Add pressure level variables
-        variables.extend([
-            f"temperature_{pressure_level}hPa",
-            f"wind_speed_{pressure_level}hPa",
-            f"wind_direction_{pressure_level}hPa",
-        ])
-
-        # Query each waypoint separately (more reliable)
+        # Query each waypoint separately with its specific altitude
         points: list[ModelPoint] = []
         for wp in waypoints:
+            # Determine pressure level for this waypoint's altitude
+            pressure_level = self._altitude_to_pressure(wp.altitude_ft)
+
+            # Add pressure level variables for this waypoint
+            variables = base_variables.copy()
+            variables.extend([
+                f"temperature_{pressure_level}hPa",
+                f"wind_speed_{pressure_level}hPa",
+                f"wind_direction_{pressure_level}hPa",
+            ])
+
             params = {
                 "latitude": wp.latitude,
                 "longitude": wp.longitude,

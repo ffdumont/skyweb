@@ -99,6 +99,7 @@ class WaypointContext(FirestoreModel):
     latitude: float
     longitude: float
     icao: str | None = None
+    altitude_ft: int = Field(default=3500, ge=0, description="Planned altitude at this waypoint")
 
     estimated_time_utc: datetime
     actual_time_utc: datetime | None = None

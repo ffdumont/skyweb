@@ -8,6 +8,7 @@ import type { SimulationResponse, ModelPoint, WeatherModel } from "../../api/typ
 const VARIABLES = [
   { id: "temperature", name: "Température sol", unit: "°C" },
   { id: "wind_ground", name: "Vent sol", unit: "" },
+  { id: "wind_altitude", name: "Vent en altitude", unit: "" },
   { id: "wind_gusts", name: "Rafales", unit: "kt" },
   { id: "cloud_low", name: "Nuages bas", unit: "%" },
   { id: "cloud_total", name: "Nébulosité", unit: "%" },
@@ -42,7 +43,7 @@ export default function MeteoTab() {
   // Local state for weather tab
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set(["arome", "ecmwf"]));
   const [selectedVariables, setSelectedVariables] = useState<Set<string>>(
-    new Set(["temperature", "wind_ground", "cloud_low", "vfr_status"])
+    new Set(["temperature", "wind_ground", "wind_altitude", "cloud_low", "vfr_status"])
   );
   const [simulations, setSimulations] = useState<Simulation[]>([]);
   const [currentSimulationId, setCurrentSimulationId] = useState<string | null>(null);
@@ -69,7 +70,7 @@ export default function MeteoTab() {
       .catch(() => setAvailableModels(DEFAULT_MODELS));
   }, []);
 
-  // Waypoints for API call
+  // Waypoints for API call (include per-waypoint altitude)
   const waypoints = useMemo(() => {
     if (!routeData?.waypoints) return [];
     return routeData.waypoints
@@ -78,8 +79,9 @@ export default function MeteoTab() {
         name: wp.name,
         lat: wp.lat,
         lon: wp.lon,
+        altitude_ft: wp.altitude_ft || cruiseAltitudeFt,
       }));
-  }, [routeData]);
+  }, [routeData, cruiseAltitudeFt]);
 
   // Current simulation
   const currentSimulation = useMemo(() => {
@@ -173,6 +175,15 @@ export default function MeteoTab() {
         return f.temperature_2m !== null ? `${f.temperature_2m.toFixed(1)}°C` : "—";
       case "wind_ground":
         return formatWind(f.wind_direction_10m, f.wind_speed_10m);
+      case "wind_altitude": {
+        // Get wind at planned altitude (from pressure levels)
+        const speedLevels = Object.values(f.wind_speed_levels);
+        const dirLevels = Object.values(f.wind_direction_levels);
+        if (speedLevels.length === 0) return "—";
+        const speed = speedLevels[0];
+        const dir = dirLevels[0] ?? 0;
+        return formatWind(dir, speed);
+      }
       case "wind_gusts":
         return f.wind_gusts_10m !== null ? `${Math.round(f.wind_gusts_10m)}kt` : "—";
       case "cloud_low":
@@ -506,7 +517,7 @@ export default function MeteoTab() {
                               <th key={idx} style={{ ...thStyle, textAlign: "center" }}>
                                 <div style={{ fontWeight: 600 }}>{wp?.waypoint_name ?? `WP${idx}`}</div>
                                 <div style={{ fontSize: 11, color: "#666", fontWeight: 400 }}>
-                                  {wp ? formatTime(wp.estimated_time_utc) : ""}
+                                  {wp ? `${formatTime(wp.estimated_time_utc)} · FL${Math.round(wp.altitude_ft / 100)}` : ""}
                                 </div>
                               </th>
                             );

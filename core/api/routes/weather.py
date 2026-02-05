@@ -21,6 +21,7 @@ class WaypointInput(BaseModel):
     lat: float = Field(..., ge=-90, le=90)
     lon: float = Field(..., ge=-180, le=180)
     icao: str | None = None
+    altitude_ft: int | None = Field(default=None, description="Planned altitude at this waypoint")
 
 
 class SimulationRequest(BaseModel):
@@ -55,9 +56,15 @@ async def run_simulation(
     """
     service = WeatherService()
 
-    # Convert waypoints to dict format
+    # Convert waypoints to dict format (include per-waypoint altitude if provided)
     waypoints = [
-        {"name": wp.name, "lat": wp.lat, "lon": wp.lon, "icao": wp.icao}
+        {
+            "name": wp.name,
+            "lat": wp.lat,
+            "lon": wp.lon,
+            "icao": wp.icao,
+            "altitude_ft": wp.altitude_ft,
+        }
         for wp in request.waypoints
     ]
 
@@ -94,6 +101,7 @@ def _simulation_to_dict(simulation, requested_models: list[str]) -> dict[str, An
             "latitude": wp.latitude,
             "longitude": wp.longitude,
             "icao": wp.icao,
+            "altitude_ft": wp.altitude_ft,
             "estimated_time_utc": wp.estimated_time_utc.isoformat(),
         }
         for wp in simulation.waypoints
