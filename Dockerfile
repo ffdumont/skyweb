@@ -22,4 +22,4 @@ ENV PORT=8000
 EXPOSE 8000
 
 # Run uvicorn with Cloud Run conventions
-CMD exec uvicorn core.api.main:app --host 0.0.0.0 --port $PORT
+CMD exec uvicorn core.api.app:app --host 0.0.0.0 --port $PORT
