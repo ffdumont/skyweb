@@ -9,33 +9,39 @@ import {
   PolylineDashMaterialProperty,
   VerticalOrigin,
 } from "cesium";
-import { useRouteStore } from "../../stores/routeStore";
+import type { WaypointData } from "../../data/mockDossier";
 
-export default function RouteLayer() {
+interface Props {
+  waypoints: WaypointData[];
+}
+
+export default function RouteLayer({ waypoints }: Props) {
   const { viewer } = useCesium();
-  const route = useRouteStore((s) => s.route);
   const dsRef = useRef<CustomDataSource | null>(null);
 
   useEffect(() => {
-    if (!viewer) return;
+    if (!viewer || viewer.isDestroyed()) return;
 
     // Remove previous datasource
-    if (dsRef.current) {
-      viewer.dataSources.remove(dsRef.current, true);
+    if (dsRef.current && viewer.dataSources) {
+      try {
+        viewer.dataSources.remove(dsRef.current, true);
+      } catch {
+        // Viewer may have been destroyed
+      }
       dsRef.current = null;
     }
 
-    const coords = route?.coordinates;
-    if (!coords?.length) return;
+    if (!waypoints.length) return;
 
     const ds = new CustomDataSource("route");
 
     // Route polyline
     const positions = Cartesian3.fromDegreesArray(
-      coords.flatMap((c) => [c.lon, c.lat]),
+      waypoints.flatMap((w) => [w.lon, w.lat]),
     );
     ds.entities.add({
-      name: route!.name,
+      name: "Route",
       polyline: {
         positions,
         width: 3,
@@ -48,14 +54,13 @@ export default function RouteLayer() {
     });
 
     // Waypoint markers + labels
-    for (const c of coords) {
-      const isIntermediate = c.is_intermediate ?? false;
-      const name = c.name ?? "";
-      const altLabel = c.altitude_ft != null ? `${c.altitude_ft} ft` : "";
+    for (const w of waypoints) {
+      const isIntermediate = w.is_intermediate ?? false;
+      const altLabel = w.altitude_ft ? `${w.altitude_ft} ft` : "";
 
       ds.entities.add({
-        name,
-        position: Cartesian3.fromDegrees(c.lon, c.lat),
+        name: w.name,
+        position: Cartesian3.fromDegrees(w.lon, w.lat),
         point: {
           pixelSize: isIntermediate ? 6 : 9,
           color: isIntermediate ? Color.ORANGE : Color.DODGERBLUE,
@@ -65,7 +70,7 @@ export default function RouteLayer() {
         label: isIntermediate
           ? undefined
           : {
-              text: `${name}\n${altLabel}`,
+              text: `${w.name}\n${altLabel}`,
               font: "bold 13px sans-serif",
               fillColor: Color.WHITE,
               outlineColor: Color.BLACK,
@@ -83,12 +88,16 @@ export default function RouteLayer() {
     dsRef.current = ds;
 
     return () => {
-      if (viewer && dsRef.current) {
-        viewer.dataSources.remove(dsRef.current, true);
+      if (dsRef.current && viewer && !viewer.isDestroyed() && viewer.dataSources) {
+        try {
+          viewer.dataSources.remove(dsRef.current, true);
+        } catch {
+          // Viewer already destroyed
+        }
         dsRef.current = null;
       }
     };
-  }, [viewer, route]);
+  }, [viewer, waypoints]);
 
   return null;
 }
