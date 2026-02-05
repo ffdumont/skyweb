@@ -1,4 +1,5 @@
 import { useDossierStore } from "../../stores/dossierStore";
+import { useAuthStore } from "../../stores/authStore";
 
 const headerStyle: React.CSSProperties = {
   height: 48,
@@ -26,10 +27,23 @@ const linkStyle: React.CSSProperties = {
   borderRadius: 4,
 };
 
+const logoutButtonStyle: React.CSSProperties = {
+  background: "transparent",
+  border: "1px solid rgba(255,255,255,0.3)",
+  color: "rgba(255,255,255,0.8)",
+  padding: "4px 12px",
+  borderRadius: 4,
+  fontSize: 12,
+  cursor: "pointer",
+  marginLeft: 12,
+};
+
 export default function AppHeader() {
   const viewMode = useDossierStore((s) => s.viewMode);
   const closeDossier = useDossierStore((s) => s.closeDossier);
   const cancelWizard = useDossierStore((s) => s.cancelWizard);
+  const user = useAuthStore((s) => s.user);
+  const signOut = useAuthStore((s) => s.signOut);
 
   const goHome = viewMode === "wizard" ? cancelWizard : closeDossier;
 
@@ -51,9 +65,20 @@ export default function AppHeader() {
           AIRAC 2602
         </span>
       )}
-      <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>
-        Pilote VFR
-      </span>
+      {user ? (
+        <div style={{ display: "flex", alignItems: "center" }}>
+          <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>
+            {user.email}
+          </span>
+          <button style={logoutButtonStyle} onClick={signOut}>
+            Déconnexion
+          </button>
+        </div>
+      ) : (
+        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>
+          Pilote VFR
+        </span>
+      )}
     </header>
   );
 }

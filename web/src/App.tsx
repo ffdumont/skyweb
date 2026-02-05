@@ -1,8 +1,12 @@
+import { useEffect } from "react";
 import { useDossierStore } from "./stores/dossierStore";
+import { useAuthStore } from "./stores/authStore";
+import { isFirebaseConfigured } from "./lib/firebase";
 import AppHeader from "./components/layout/AppHeader";
 import DossierHeader from "./components/layout/DossierHeader";
 import DossierList from "./components/layout/DossierList";
 import CreateDossierWizard from "./components/wizard/CreateDossierWizard";
+import LoginPage from "./components/auth/LoginPage";
 import SummaryTab from "./components/tabs/SummaryTab";
 import RouteTab from "./components/tabs/RouteTab";
 import AerodromesTab from "./components/tabs/AerodromesTab";
@@ -104,6 +108,39 @@ function TabContent() {
 
 export default function App() {
   const viewMode = useDossierStore((s) => s.viewMode);
+  const user = useAuthStore((s) => s.user);
+  const initialized = useAuthStore((s) => s.initialized);
+  const initialize = useAuthStore((s) => s.initialize);
+
+  // Initialize auth on mount
+  useEffect(() => {
+    const unsubscribe = initialize();
+    return unsubscribe;
+  }, [initialize]);
+
+  // Show loading while initializing auth
+  if (!initialized && isFirebaseConfigured()) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100vh",
+          background: "#1a1a2e",
+          color: "#fff",
+          fontSize: 18,
+        }}
+      >
+        Chargement...
+      </div>
+    );
+  }
+
+  // Show login page if Firebase is configured and user is not authenticated
+  if (isFirebaseConfigured() && !user) {
+    return <LoginPage />;
+  }
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100vh", background: "#f5f6fa" }}>
