@@ -161,12 +161,9 @@ export default function AirspacesTab() {
           fullscreenButton: false,
           selectionIndicator: false,
           infoBox: true,
-          // Disable Cesium Ion to avoid 401 errors
-          imageryProvider: false as any,
-          baseLayer: false as any,
+          // Disable Cesium Ion to avoid 401 errors (cast to any for runtime options)
+          ...({ imageryProvider: false, baseLayer: false, skyBox: false, skyAtmosphere: false } as Record<string, unknown>),
           terrainProvider: undefined,
-          skyBox: false as any,
-          skyAtmosphere: false as any,
         });
 
         // Add OSM imagery
