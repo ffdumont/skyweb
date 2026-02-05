@@ -216,7 +216,9 @@ async def upload_kml(
     return data
 
 
-DEMO_KML_PATH = Path(r"C:\Users\franc\dev\skytools\skypath\data\routes\LFXU-LFFU-2025-09-25-14-51-39.kml")
+# Demo KML path relative to project root (works locally and in Docker)
+_PROJECT_ROOT = Path(__file__).parent.parent.parent.parent
+DEMO_KML_PATH = _PROJECT_ROOT / "data" / "demo" / "LFXU-LFFU-2025-09-25-14-51-39.kml"
 
 
 @router.post("/demo", status_code=201)
