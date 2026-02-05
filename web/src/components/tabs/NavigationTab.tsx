@@ -22,7 +22,13 @@ interface NavigationParams {
 }
 
 // Service types we want to show in the nav log (prioritized order)
-const RELEVANT_SERVICE_TYPES = ["SIV", "APP", "TWR", "ATIS", "AFIS", "A/A"];
+// Maps both abbreviated codes and French names from database
+const SERVICE_TYPE_PRIORITY: Record<string, number> = {
+  // Abbreviated codes
+  "SIV": 0, "APP": 1, "TWR": 2, "ATIS": 3, "AFIS": 4, "A/A": 5,
+  // French names from database
+  "Information": 0, "Approche": 1, "Tour": 2, "Auto-information": 5,
+};
 
 export default function NavigationTab() {
   const routeData = useDossierStore((s) => s.routeData);
@@ -373,8 +379,8 @@ function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: stri
 
   for (const airspace of allAirspaces) {
     for (const service of airspace.services) {
-      const priority = RELEVANT_SERVICE_TYPES.indexOf(service.service_type);
-      if (priority === -1) continue; // Skip irrelevant services
+      const priority = SERVICE_TYPE_PRIORITY[service.service_type];
+      if (priority === undefined) continue; // Skip irrelevant services
 
       for (const freq of service.frequencies) {
         const key = `${service.callsign}-${freq.frequency_mhz}`;
@@ -389,7 +395,7 @@ function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: stri
     }
   }
 
-  // Sort by priority (SIV first, then APP, then TWR, etc.)
+  // Sort by priority (SIV/Information first, then APP/Approche, then TWR/Tour, etc.)
   frequencies.sort((a, b) => a.priority - b.priority);
 
   return frequencies.map(({ callsign, frequency }) => ({ callsign, frequency }));
