@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from core.api.deps import get_current_user
+from core.api.deps import get_current_user_or_demo
 from core.services.weather_service import WeatherService
 
 router = APIRouter(prefix="/weather", tags=["weather"])
@@ -46,7 +46,7 @@ class SimulationRequest(BaseModel):
 @router.post("/simulations")
 async def run_simulation(
     request: SimulationRequest,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(get_current_user_or_demo),
 ) -> dict[str, Any]:
     """Run a new weather simulation for a route.
 
