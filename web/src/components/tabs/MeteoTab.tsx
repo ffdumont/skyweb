@@ -459,15 +459,10 @@ export default function MeteoTab() {
         {/* Model sections */}
         {currentSimulation &&
           currentSimulation.response.model_results
-            .filter((mr) => {
-              // Map API model names to our IDs
-              const modelId = mr.model.replace("_france", "").replace("_europe", "").replace("_world", "").toLowerCase();
-              return selectedModels.has(modelId) || selectedModels.has(mr.model);
-            })
+            .filter((mr) => selectedModels.has(mr.model))
             .map((modelResult) => {
-              const modelConfig = availableModels.find((m) =>
-                modelResult.model.toLowerCase().includes(m.id) || m.id === modelResult.model
-              ) ?? { name: modelResult.model, color: "#666", provider: "", horizon_hours: 0 };
+              const modelConfig = availableModels.find((m) => m.id === modelResult.model)
+                ?? { name: modelResult.model, color: "#666", provider: "", horizon_hours: 0 };
 
               const activeVariables = VARIABLES.filter((v) => selectedVariables.has(v.id));
 

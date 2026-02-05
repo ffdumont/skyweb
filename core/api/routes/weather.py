@@ -61,19 +61,22 @@ async def run_simulation(
         for wp in request.waypoints
     ]
 
+    # Get validated models list
+    requested_models = request.models or ["arome", "ecmwf"]
+
     try:
         simulation = await service.run_simulation(
             waypoints=waypoints,
             departure_datetime=request.departure_datetime,
             cruise_speed_kt=request.cruise_speed_kt,
             cruise_altitude_ft=request.cruise_altitude_ft,
-            models=request.models,
+            models=requested_models,
         )
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Weather API error: {e}")
 
     # Convert to JSON-serializable format
-    return _simulation_to_dict(simulation)
+    return _simulation_to_dict(simulation, requested_models)
 
 
 @router.get("/models")
@@ -82,7 +85,7 @@ async def list_models() -> list[dict[str, Any]]:
     return WeatherService.get_available_models()
 
 
-def _simulation_to_dict(simulation) -> dict[str, Any]:
+def _simulation_to_dict(simulation, requested_models: list[str]) -> dict[str, Any]:
     """Convert WeatherSimulation to JSON-serializable dict."""
     waypoints_data = [
         {
@@ -97,7 +100,8 @@ def _simulation_to_dict(simulation) -> dict[str, Any]:
     ]
 
     model_results_data = []
-    for mr in simulation.model_results:
+    # Zip model results with requested model IDs (they're in the same order)
+    for model_id, mr in zip(requested_models, simulation.model_results):
         points_data = []
         for pt in mr.points:
             forecast = pt.forecast
@@ -122,7 +126,7 @@ def _simulation_to_dict(simulation) -> dict[str, Any]:
                     "weather_code": forecast.weather_code,
                 },
                 "vfr_index": {
-                    "status": pt.vfr_index.status.value,
+                    "status": pt.vfr_index.status.value if hasattr(pt.vfr_index.status, 'value') else pt.vfr_index.status,
                     "visibility_ok": pt.vfr_index.visibility_ok,
                     "ceiling_ok": pt.vfr_index.ceiling_ok,
                     "wind_ok": pt.vfr_index.wind_ok,
@@ -131,7 +135,7 @@ def _simulation_to_dict(simulation) -> dict[str, Any]:
             })
 
         model_results_data.append({
-            "model": mr.model.value,
+            "model": model_id,  # Use the requested model ID, not the enum
             "model_run_time": mr.model_run_time.isoformat(),
             "points": points_data,
         })
