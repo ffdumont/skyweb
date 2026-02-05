@@ -12,6 +12,7 @@ import RouteTab from "./components/tabs/RouteTab";
 import AerodromesTab from "./components/tabs/AerodromesTab";
 import AirspacesTab from "./components/tabs/AirspacesTab";
 import MeteoTab from "./components/tabs/MeteoTab";
+import NavigationTab from "./components/tabs/NavigationTab";
 import PlaceholderTab from "./components/tabs/PlaceholderTab";
 
 function TabContent() {
@@ -44,20 +45,7 @@ function TabContent() {
     case "meteo":
       return <MeteoTab />;
     case "navigation":
-      return (
-        <PlaceholderTab
-          title="Navigation"
-          description="Tableau log de navigation pré-rempli par segment avec les éléments variables calculés à partir de la météo."
-          items={[
-            "Rv, Dm, Rm, X (dérive), Cm par segment",
-            "Tsv, Te, Vsol, distance cumulée",
-            "Profil de vol annoté (altitudes, calages, radiocoms)",
-            "Temps d'anticipation descente (Tad, Dia)",
-            "Heure estimée d'arrivée (HEA)",
-          ]}
-          status="planned"
-        />
-      );
+      return <NavigationTab />;
     case "fuel":
       return (
         <PlaceholderTab

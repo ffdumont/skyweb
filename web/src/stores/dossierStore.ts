@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { DossierSummary, SectionCompletion, WaypointData, SegmentData, GroundPoint } from "../data/mockDossier";
-import type { CoordinatePoint, RouteAirspaceAnalysis, UploadRouteResponse } from "../api/types";
+import type { CoordinatePoint, RouteAirspaceAnalysis, SimulationResponse, UploadRouteResponse } from "../api/types";
 import * as api from "../api/client";
 import { computeSegments } from "../utils/segments";
 
@@ -86,6 +86,11 @@ interface DossierState {
   airspaceLoading: boolean;
   airspaceError: string | null;
 
+  // Weather simulation state (shared between MeteoTab and NavigationTab)
+  weatherSimulations: SimulationResponse[];
+  currentWeatherSimulationId: string | null;
+  currentWeatherModelId: string;
+
   startWizard: () => void;
   cancelWizard: () => void;
   uploadKml: (file: File) => Promise<void>;
@@ -108,6 +113,13 @@ interface DossierState {
   loadAirspaceAnalysis: (routeId: string) => Promise<void>;
   toggleAirspace: (key: string) => void;
   toggleAllAirspaces: (selected: boolean) => void;
+
+  // Weather simulation actions
+  addWeatherSimulation: (simulation: SimulationResponse) => void;
+  setCurrentWeatherSimulation: (simulationId: string | null) => void;
+  setCurrentWeatherModel: (modelId: string) => void;
+  deleteWeatherSimulation: (simulationId: string) => void;
+  clearWeatherSimulations: () => void;
 }
 
 export const useDossierStore = create<DossierState>((set, get) => ({
@@ -123,6 +135,11 @@ export const useDossierStore = create<DossierState>((set, get) => ({
   airspaceSelection: {},
   airspaceLoading: false,
   airspaceError: null,
+
+  // Weather simulation state
+  weatherSimulations: [],
+  currentWeatherSimulationId: null,
+  currentWeatherModelId: "arome",
 
   startWizard: () =>
     set({ viewMode: "wizard", wizard: { ...initialWizard } }),
@@ -384,4 +401,32 @@ export const useDossierStore = create<DossierState>((set, get) => ({
       }
       return { airspaceSelection: selection };
     }),
+
+  // Weather simulation actions
+  addWeatherSimulation: (simulation: SimulationResponse) =>
+    set((s) => ({
+      weatherSimulations: [simulation, ...s.weatherSimulations],
+      currentWeatherSimulationId: simulation.simulation_id,
+    })),
+
+  setCurrentWeatherSimulation: (simulationId: string | null) =>
+    set({ currentWeatherSimulationId: simulationId }),
+
+  setCurrentWeatherModel: (modelId: string) =>
+    set({ currentWeatherModelId: modelId }),
+
+  deleteWeatherSimulation: (simulationId: string) =>
+    set((s) => {
+      const remaining = s.weatherSimulations.filter((sim) => sim.simulation_id !== simulationId);
+      return {
+        weatherSimulations: remaining,
+        currentWeatherSimulationId:
+          s.currentWeatherSimulationId === simulationId
+            ? (remaining.length > 0 ? remaining[0].simulation_id : null)
+            : s.currentWeatherSimulationId,
+      };
+    }),
+
+  clearWeatherSimulations: () =>
+    set({ weatherSimulations: [], currentWeatherSimulationId: null }),
 }));
