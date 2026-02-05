@@ -8,7 +8,7 @@
  * - weatherSimulation (wind data for drift calculation)
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useDossierStore } from "../../stores/dossierStore";
 import type { SegmentData } from "../../data/mockDossier";
 import type { LegAirspaces, SimulationResponse } from "../../api/types";
@@ -27,11 +27,20 @@ const RELEVANT_SERVICE_TYPES = ["SIV", "APP", "TWR", "ATIS", "AFIS", "A/A"];
 export default function NavigationTab() {
   const routeData = useDossierStore((s) => s.routeData);
   const airspaceAnalysis = useDossierStore((s) => s.airspaceAnalysis);
+  const currentRouteId = useDossierStore((s) => s.currentRouteId);
+  const loadAirspaceAnalysis = useDossierStore((s) => s.loadAirspaceAnalysis);
 
   // Weather simulation from shared store
   const weatherSimulations = useDossierStore((s) => s.weatherSimulations);
   const currentWeatherSimulationId = useDossierStore((s) => s.currentWeatherSimulationId);
   const currentWeatherModelId = useDossierStore((s) => s.currentWeatherModelId);
+
+  // Auto-load airspace analysis if not already loaded
+  useEffect(() => {
+    if (currentRouteId && !airspaceAnalysis) {
+      loadAirspaceAnalysis(currentRouteId);
+    }
+  }, [currentRouteId, airspaceAnalysis, loadAirspaceAnalysis]);
 
   // Derive selected simulation from store
   const selectedSimulation = useMemo(() => {
@@ -160,13 +169,6 @@ export default function NavigationTab() {
             style={{ ...inputStyle, width: 60 }}
           />
           <span style={unitStyle}>min</span>
-        </div>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-          {!selectedSimulation && (
-            <span style={{ fontSize: 12, color: "#888" }}>
-              Pas de simulation météo (dérive non calculée)
-            </span>
-          )}
         </div>
       </div>
 

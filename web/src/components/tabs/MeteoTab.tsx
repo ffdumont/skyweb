@@ -37,16 +37,21 @@ export default function MeteoTab() {
   const routeData = useDossierStore((s) => s.routeData);
   const dossier = useDossierStore((s) => s.dossier);
 
+  // Shared weather simulation state from store
+  const weatherSimulations = useDossierStore((s) => s.weatherSimulations);
+  const currentWeatherSimulationId = useDossierStore((s) => s.currentWeatherSimulationId);
+  const addWeatherSimulation = useDossierStore((s) => s.addWeatherSimulation);
+  const setCurrentWeatherSimulation = useDossierStore((s) => s.setCurrentWeatherSimulation);
+  const deleteWeatherSimulation = useDossierStore((s) => s.deleteWeatherSimulation);
+
   // Available models from API
   const [availableModels, setAvailableModels] = useState<WeatherModel[]>(DEFAULT_MODELS);
 
-  // Local state for weather tab
+  // Local UI state
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set(["arome", "ecmwf"]));
   const [selectedVariables, setSelectedVariables] = useState<Set<string>>(
     new Set(["temperature", "wind_ground", "wind_altitude", "cloud_low", "vfr_status"])
   );
-  const [simulations, setSimulations] = useState<Simulation[]>([]);
-  const [currentSimulationId, setCurrentSimulationId] = useState<string | null>(null);
   const [simulationLoading, setSimulationLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -83,10 +88,19 @@ export default function MeteoTab() {
       }));
   }, [routeData, cruiseAltitudeFt]);
 
-  // Current simulation
-  const currentSimulation = useMemo(() => {
-    return simulations.find((s) => s.id === currentSimulationId) ?? null;
-  }, [simulations, currentSimulationId]);
+  // Current simulation (mapped from shared store)
+  const currentSimulation = useMemo((): Simulation | null => {
+    if (!currentWeatherSimulationId) return null;
+    const response = weatherSimulations.find((s) => s.simulation_id === currentWeatherSimulationId);
+    if (!response) return null;
+    return {
+      id: response.simulation_id,
+      created_at: response.simulated_at,
+      departure_datetime: response.navigation_datetime,
+      cruise_speed_kt: cruiseSpeedKt,
+      response,
+    };
+  }, [weatherSimulations, currentWeatherSimulationId, cruiseSpeedKt]);
 
   // Toggle functions
   const toggleModel = (modelId: string) => {
@@ -129,29 +143,12 @@ export default function MeteoTab() {
         models: Array.from(selectedModels),
       });
 
-      const newSimulation: Simulation = {
-        id: response.simulation_id,
-        created_at: response.simulated_at,
-        departure_datetime: response.navigation_datetime,
-        cruise_speed_kt: cruiseSpeedKt,
-        response,
-      };
-
-      setSimulations((prev) => [newSimulation, ...prev]);
-      setCurrentSimulationId(newSimulation.id);
+      // Add to shared store (will also set as current)
+      addWeatherSimulation(response);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erreur lors de la simulation");
     } finally {
       setSimulationLoading(false);
-    }
-  };
-
-  // Delete simulation
-  const deleteSimulation = (simId: string) => {
-    setSimulations((prev) => prev.filter((s) => s.id !== simId));
-    if (currentSimulationId === simId) {
-      const remaining = simulations.filter((s) => s.id !== simId);
-      setCurrentSimulationId(remaining.length > 0 ? remaining[0].id : null);
     }
   };
 
@@ -327,11 +324,11 @@ export default function MeteoTab() {
             {simulationLoading ? "Chargement..." : "Lancer simulation"}
           </button>
 
-          {simulations.length > 0 && (
+          {weatherSimulations.length > 0 && (
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
               <select
-                value={currentSimulationId ?? ""}
-                onChange={(e) => setCurrentSimulationId(e.target.value)}
+                value={currentWeatherSimulationId ?? ""}
+                onChange={(e) => setCurrentWeatherSimulation(e.target.value)}
                 style={{
                   padding: "6px 10px",
                   border: "1px solid #ccc",
@@ -339,9 +336,9 @@ export default function MeteoTab() {
                   fontSize: 13,
                 }}
               >
-                {simulations.map((sim) => (
-                  <option key={sim.id} value={sim.id}>
-                    {new Date(sim.departure_datetime).toLocaleString("fr-FR", {
+                {weatherSimulations.map((sim) => (
+                  <option key={sim.simulation_id} value={sim.simulation_id}>
+                    {new Date(sim.navigation_datetime).toLocaleString("fr-FR", {
                       day: "2-digit",
                       month: "2-digit",
                       hour: "2-digit",
@@ -350,9 +347,9 @@ export default function MeteoTab() {
                   </option>
                 ))}
               </select>
-              {currentSimulationId && (
+              {currentWeatherSimulationId && (
                 <button
-                  onClick={() => deleteSimulation(currentSimulationId)}
+                  onClick={() => deleteWeatherSimulation(currentWeatherSimulationId)}
                   style={{
                     padding: "6px 10px",
                     background: "#fff",
