@@ -9,7 +9,7 @@ from fastapi import Depends, Request
 from core.api.auth import UserClaims, verify_firebase_token
 from core.persistence.repositories.aircraft_repo import AircraftRepository
 from core.persistence.repositories.community_repo import CommunityRepository
-from core.persistence.repositories.flight_repo import FlightRepository
+from core.persistence.repositories.dossier_repo import DossierRepository
 from core.persistence.repositories.route_repo import RouteRepository
 from core.persistence.repositories.waypoint_repo import WaypointRepository
 from core.persistence.spatialite.aerodrome_query import AerodromeQueryService
@@ -49,8 +49,8 @@ def get_aircraft_repo() -> AircraftRepository:
     return AircraftRepository()
 
 
-def get_flight_repo() -> FlightRepository:
-    return FlightRepository()
+def get_dossier_repo() -> DossierRepository:
+    return DossierRepository()
 
 
 def get_community_repo() -> CommunityRepository:

@@ -8,7 +8,6 @@ from unittest.mock import patch
 import pytest
 
 from core.contracts.enums import (
-    FlightStatus,
     LocationType,
     WaypointRole,
     WaypointSource,
@@ -16,7 +15,6 @@ from core.contracts.enums import (
 from core.contracts.route import Route, RouteLeg, RouteWaypointRef
 from core.contracts.waypoint import UserWaypoint
 from core.persistence.repositories.aircraft_repo import AircraftRepository
-from core.persistence.repositories.flight_repo import FlightRepository
 from core.persistence.repositories.route_repo import RouteRepository
 from core.persistence.repositories.waypoint_repo import WaypointRepository
 from tests.persistence.fake_firestore import FakeFirestoreClient

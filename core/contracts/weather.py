@@ -1,6 +1,6 @@
 """Weather models — multi-model simulation, forecasts, observations.
 
-Stored at: ``/users/{user_id}/routes/{route_id}/simulations/{simulation_id}``
+Stored at: ``/users/{user_id}/dossiers/{dossier_id}/simulations/{simulation_id}``
 """
 
 from datetime import datetime
@@ -122,10 +122,14 @@ class ModelResult(FirestoreModel):
 
 
 class WeatherSimulation(FirestoreModel):
-    """Multi-model weather simulation on a route."""
+    """Multi-model weather simulation on a route.
+
+    Now stored under dossier: ``/users/{uid}/dossiers/{did}/simulations/{sid}``
+    """
 
     id: str | None = None
     route_id: str
+    dossier_id: str | None = None
     simulated_at: datetime
     navigation_datetime: datetime
 

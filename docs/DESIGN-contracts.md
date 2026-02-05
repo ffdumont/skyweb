@@ -26,7 +26,7 @@ core/contracts/
 ├── waypoint.py         # Waypoint (éphémère), UserWaypoint (persisté)
 ├── route.py            # Route, RouteLeg, RouteProjection, ProjectionAssumptions
 ├── aircraft.py         # Aircraft, FuelProfile
-├── flight.py           # Flight, Track, WaypointPassageTime
+├── dossier.py          # Dossier, Track, WaypointPassageTime
 ├── weather.py          # WeatherSimulation, modèles multi-modèle
 ├── airspace.py         # AirspaceIntersection, LegAirspaces
 └── aerodrome.py        # AerodromeInfo, Runway, services
@@ -41,7 +41,7 @@ Chaque modèle a une **nature contractuelle** explicite. Cette classification es
 | `Route` | **Intention** | Oui (Firestore) | Oui | Navigation horizontale et verticale, indépendante du temps, de la météo et de l'avion |
 | `RouteLeg` | **Intention** (champs persistés) + **Projection** (champs calculés) | Partiellement | Champs persistés: oui. Champs calculés: non | Altitude = intention pilote. Distance, cap, ETE = projection sous hypothèses |
 | `RouteProjection` | **Projection** | Non (API response) | Non | Vue calculée d'une Route sous un jeu d'hypothèses explicites (heure, avion, vent). Peut être recalculée à tout moment. Résultats non garantis stables |
-| `Flight` | **Intention** + **Snapshot** | Oui (Firestore) | Oui | Instance de vol avec références figées vers météo et NOTAM collectés |
+| `Dossier` | **Intention** + **Snapshot** | Oui (Firestore) | Oui | Dossier de navigation avec suivi de complétion par section et références figées vers météo et NOTAM collectés |
 | `WeatherSimulation` | **Snapshot** | Oui (Firestore) | Oui (figé à la collecte) | Capture météo à un instant donné. Jamais auto-rafraîchi |
 | `Aircraft` | **Configuration** | Oui (Firestore) | Oui | Données avion stables (modifiable par l'utilisateur) |
 | `UserWaypoint` | **Référence utilisateur** | Oui (Firestore) | Oui | Lieu sauvegardé pour réutilisation |
@@ -107,7 +107,9 @@ Définies dans `core/contracts/enums.py`. Toutes héritent de `str, Enum`.
 | `LocationType` | `aerodrome`, `navaid`, `visual_reference`, `gps_point` | Nature intrinsèque du lieu |
 | `WaypointRole` | `departure`, `arrival`, `alternate`, `enroute` | Rôle d'un waypoint dans une route spécifique |
 | `WaypointSource` | `sdvfr_import`, `manual`, `gpx_trace` | Origine du waypoint (UserWaypoint uniquement) |
-| `FlightStatus` | `draft`, `planned`, `ready`, `completed`, `cancelled` | Cycle de vie du vol |
+| `DossierStatus` | `draft`, `preparing`, `ready`, `archived` | Cycle de vie du dossier de navigation |
+| `SectionId` | `route`, `aerodromes`, `airspaces`, `notam`, `meteo`, `navigation`, `fuel`, `performance`, `documents` | Sections d'un dossier |
+| `SectionCompletion` | `empty`, `partial`, `complete`, `alert` | Complétion d'une section |
 | `TrackSource` | `gpx_file`, `flightaware`, `manual` | Source de la trace GPS |
 | `ForecastModel` | `arome_france`, `arome_hd`, `arpege_europe`, `arpege_world` | Modèle météo |
 | `VFRStatus` | `green`, `yellow`, `red` | Indice sécurité VFR |
@@ -378,38 +380,43 @@ cg = moment_total / weight_total
 
 On vérifie ensuite que le point (cg, weight_total) est **à l'intérieur** du polygone `envelope`.
 
-### 4.4 Flight et Track
+### 4.4 Dossier de Navigation et Track
 
-Un vol est une instance spécifique d'une route à une date donnée.
+Un dossier de navigation est l'entité centrale de la préparation de vol VFR. Il regroupe toutes les données nécessaires : route, avion, météo, NOTAM, carburant, masse/centrage et documents générés.
 
 ```
-Firestore: /users/{user_id}/flights/{flight_id}
+Firestore: /users/{user_id}/dossiers/{dossier_id}
 ```
 
-#### Flight
+#### Dossier
 
 | Champ | Type | Description |
 |-------|------|-------------|
 | `id` | `str?` | ID Firestore |
+| `name` | `str` | Nom lisible du dossier (ex: "LFMT → LFBO 2025-06-15") |
 | `route_id` | `str` | Référence vers la Route |
 | `aircraft_id` | `str?` | Référence vers l'Aircraft |
 | `departure_datetime_utc` | `datetime` | Date/heure de départ prévue (UTC) |
-| `status` | `FlightStatus` | `draft` → `planned` → `ready` → `completed` |
-| `station_loads` | `list[StationLoad]` | Poids chargé à chaque station pour ce vol |
+| `status` | `DossierStatus` | `draft` → `preparing` → `ready` → `archived` |
+| `sections` | `dict[str, str]` | Complétion par section (SectionId → SectionCompletion), 9 sections initialisées à `empty` |
+| `alternate_icao` | `list[str]` | Codes OACI des aérodromes de dégagement |
+| `station_loads` | `list[StationLoad]` | Poids chargé à chaque station |
 | `track` | `Track?` | Trace GPS post-vol |
 | `weather_simulation_id` | `str?` | Snapshot météo figé à la collecte |
 | `notam_snapshot_ref` | `str?` | Snapshot NOTAM figé à la collecte |
 | `prep_sheet_ref` | `str?` | Fiche préparation générée (GCS) |
+| `tem_threats` | `list[str]` | Menaces identifiées (analyse TEM) |
+| `tem_mitigations` | `list[str]` | Contremesures planifiées |
 | `created_at` | `datetime` | Horodatage UTC |
 | `updated_at` | `datetime?` | Dernière modification |
 
-**Temporalité des données de vol** :
+**Temporalité des données du dossier** :
 
-Un Flight combine trois catégories de données avec des garanties contractuelles différentes :
+Un Dossier combine trois catégories de données avec des garanties contractuelles différentes :
 
 | Catégorie | Champs | Comportement |
 |-----------|--------|-------------|
-| **Intention** (persistée, stable) | `route_id`, `aircraft_id`, `departure_datetime_utc`, `status`, `station_loads` | Saisie pilote, stockée en Firestore, ne change pas sauf action explicite |
+| **Intention** (persistée, stable) | `name`, `route_id`, `aircraft_id`, `departure_datetime_utc`, `status`, `station_loads`, `alternate_icao`, `sections`, `tem_*` | Saisie pilote, stockée en Firestore, ne change pas sauf action explicite |
 | **Snapshot** (persisté, figé) | `weather_simulation_id`, `notam_snapshot_ref`, `prep_sheet_ref` | Capture à un instant donné. **Jamais auto-rafraîchi.** Le pilote doit explicitement déclencher une nouvelle collecte pour mettre à jour |
 | **Projection** (calculée, éphémère) | `RouteProjection` associée | Calculée à la demande via l'API. Dépend des hypothèses (avion, vent). Non persistée, non stable |
 
@@ -417,7 +424,7 @@ Un Flight combine trois catégories de données avec des garanties contractuelle
 
 #### Track
 
-Trace GPS réelle associée à un vol. Contient les heures de passage aux waypoints, calculées par un algorithme de « snap » (point de la trace GPX le plus proche de chaque waypoint).
+Trace GPS réelle associée à un dossier. Contient les heures de passage aux waypoints, calculées par un algorithme de « snap » (point de la trace GPX le plus proche de chaque waypoint).
 
 | Champ | Type | Description |
 |-------|------|-------------|
@@ -440,26 +447,30 @@ Trace GPS réelle associée à un vol. Contient les heures de passage aux waypoi
 
 #### StationLoad
 
-Poids réel chargé à une station pour un vol donné. Référence une `LoadingStation` par son nom.
+Poids réel chargé à une station pour un dossier donné. Référence une `LoadingStation` par son nom.
 
 | Champ | Type | Description |
 |-------|------|-------------|
 | `station_name` | `str` | Référence vers `LoadingStation.name` de l'Aircraft |
 | `weight_kg` | `float` | Poids effectivement chargé (≥0) |
 
-#### Cycle de vie Flight + Track
+#### Cycle de vie Dossier + Track
 
 ```
-1. Création du vol (DRAFT)
-   └─→ route_id, departure_datetime, pilot inputs
+1. Création du dossier (DRAFT)
+   └─→ name, route_id, departure_datetime, pilot inputs
 
-2. Collecte données (PLANNED → READY)
+2. Préparation en cours (PREPARING)
+   └─→ sections progressivement remplies (empty → partial → complete)
    └─→ weather_simulation_id, notam_snapshot_ref
+   └─→ alternate_icao, tem_threats, tem_mitigations
 
-3. Vol effectué
+3. Dossier prêt (READY)
+   └─→ Toutes les sections critiques sont complete
+   └─→ Génération prep_sheet_ref
 
-4. Import trace GPX (COMPLETED)
-   └─→ track.gpx_ref
+4. Post-vol / Archivage (ARCHIVED)
+   └─→ track.gpx_ref (optionnel)
    └─→ track.passage_times (snap waypoints ↔ trace)
    └─→ Enrichissement météo avec heures réelles
 ```
@@ -469,7 +480,7 @@ Poids réel chargé à une station pour un vol donné. Référence une `LoadingS
 Architecture de simulation météo permettant de comparer plusieurs modèles de prévision.
 
 ```
-Firestore: /users/{user_id}/routes/{route_id}/simulations/{simulation_id}
+Firestore: /users/{user_id}/dossiers/{dossier_id}/simulations/{simulation_id}
 ```
 
 #### Hiérarchie
@@ -658,8 +669,8 @@ Chaque donnée a une **source de vérité** unique :
 ├── aircraft/{aircraft_id}              # → Aircraft
 ├── user_waypoints/{waypoint_id}        # → UserWaypoint (id = MD5)
 ├── routes/{route_id}                   # → Route
-│   └── simulations/{simulation_id}     # → WeatherSimulation
-└── flights/{flight_id}                 # → Flight (inclut Track en embedded)
+└── dossiers/{dossier_id}              # → Dossier (inclut Track en embedded)
+    └── simulations/{simulation_id}     # → WeatherSimulation
 ```
 
 ### 5.2 Données de référence (partagées, read-only)
@@ -678,8 +689,8 @@ Chaque donnée a une **source de vérité** unique :
 | Waypoints réutilisables | Firestore `user_waypoints/` | `UserWaypoint` |
 | Routes | Firestore `routes/` | `Route` (refs vers waypoints) |
 | Config avions | Firestore `aircraft/` | `Aircraft` |
-| Vols | Firestore `flights/` | `Flight` (Track embedded) |
-| Simulations météo | Firestore `routes/{id}/simulations/` | `WeatherSimulation` |
+| Dossiers | Firestore `dossiers/` | `Dossier` (Track embedded, sections tracking) |
+| Simulations météo | Firestore `dossiers/{id}/simulations/` | `WeatherSimulation` |
 | Fichiers KML/GPX | Cloud Storage `gs://skyweb-users/{user_id}/` | Références dans les documents |
 
 ---
