@@ -1,7 +1,8 @@
 /** Minimal API client for SkyWeb backend.
  *
  * Uses relative URLs — Vite dev server proxies /api to localhost:8000.
- * No auth header needed when backend runs with SKYWEB_AUTH_DISABLED=1.
+ * Automatically adds Firebase auth token when available.
+ * Local dev: backend runs with SKYWEB_AUTH_DISABLED=1 (no token needed).
  */
 
 import type {
@@ -15,6 +16,7 @@ import type {
   UploadRouteResponse,
   WeatherModel,
 } from "./types";
+import { getIdToken, isFirebaseConfigured } from "../lib/firebase";
 
 class ApiError extends Error {
   constructor(
@@ -27,7 +29,17 @@ class ApiError extends Error {
 }
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(url, options);
+  const headers = new Headers(options?.headers);
+
+  // Add auth token if Firebase is configured and user is authenticated
+  if (isFirebaseConfigured()) {
+    const token = await getIdToken();
+    if (token) {
+      headers.set("Authorization", `Bearer ${token}`);
+    }
+  }
+
+  const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
     const body = await res.text();
     throw new ApiError(res.status, `API ${res.status}: ${body}`);
