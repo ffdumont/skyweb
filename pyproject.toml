@@ -28,6 +28,9 @@ gcp = [
     "google-cloud-storage>=2.16",
     "firebase-admin>=6.5",
 ]
+llm = [
+    "anthropic>=0.30",
+]
 
 [build-system]
 requires = ["hatchling"]

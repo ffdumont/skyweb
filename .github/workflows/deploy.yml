@@ -110,7 +110,8 @@ jobs:
             --region ${{ env.REGION }} \
             --platform managed \
             --allow-unauthenticated \
-            --set-env-vars "GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}"
+            --set-env-vars "GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}" \
+            --set-secrets "ANTHROPIC_API_KEY=anthropic-api-key:latest,ICAO_API_KEY=icao-api-key:latest"
 
   deploy-frontend:
     needs: [build-frontend, deploy-backend]

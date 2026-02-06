@@ -308,3 +308,43 @@ export interface AlternatesResponse {
   primary: AlternateAerodrome[];
   secondary: AlternateAerodrome[];
 }
+
+// ============ NOTAM Types ============
+
+export interface NotamData {
+  id: string;
+  raw: string;
+  q_code: string | null;
+  area: string | null;
+  sub_area: string | null;
+  subject: string | null;
+  modifier: string | null;
+  message: string | null;
+  location: string | null;
+  fir: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  radius_nm: number | null;
+}
+
+export interface RouteNotamResponse {
+  route_id: string;
+  departure_icao: string;
+  destination_icao: string;
+  alternate_icaos: string[];
+  firs_crossed: string[];
+  departure: NotamData[];
+  destination: NotamData[];
+  alternates: NotamData[];
+  firs: NotamData[];
+  enroute: NotamData[];
+  total_count: number;
+  fetched_at: string;
+}
+
+export interface BriefingResponse {
+  briefing: string;
+  generated_at: string;
+}

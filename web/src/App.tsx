@@ -11,6 +11,7 @@ import SummaryTab from "./components/tabs/SummaryTab";
 import RouteTab from "./components/tabs/RouteTab";
 import AerodromesTab from "./components/tabs/AerodromesTab";
 import AirspacesTab from "./components/tabs/AirspacesTab";
+import NotamTab from "./components/tabs/NotamTab";
 import MeteoTab from "./components/tabs/MeteoTab";
 import NavigationTab from "./components/tabs/NavigationTab";
 import PlaceholderTab from "./components/tabs/PlaceholderTab";
@@ -28,20 +29,7 @@ function TabContent() {
     case "airspaces":
       return <AirspacesTab />;
     case "notam":
-      return (
-        <PlaceholderTab
-          title="NOTAM"
-          description="Consultation des NOTAM par aérodrome, par zone (FIR, espaces traversés), AZBA et SUP AIP. Filtrage par pertinence et période."
-          items={[
-            "NOTAM par AD (départ, destination, dégagements)",
-            "NOTAM par zone (FIR, espaces traversés)",
-            "AZBA / Activités Défense",
-            "SUP AIP",
-            "Filtrage par pertinence",
-          ]}
-          status="unavailable"
-        />
-      );
+      return <NotamTab />;
     case "meteo":
       return <MeteoTab />;
     case "navigation":

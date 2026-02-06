@@ -10,10 +10,13 @@ import type {
   AerodromeNotes,
   AircraftSummary,
   AlternatesResponse,
+  BriefingResponse,
   CreateDossierPayload,
   DossierResponse,
   GroundPoint,
+  NotamData,
   RouteAirspaceAnalysis,
+  RouteNotamResponse,
   SaveAerodromeNotesRequest,
   SimulationRequest,
   SimulationResponse,
@@ -205,4 +208,47 @@ export async function getRouteAlternates(
   bufferNm: number = 15,
 ): Promise<AlternatesResponse> {
   return apiFetch<AlternatesResponse>(`/api/routes/${routeId}/alternates?buffer_nm=${bufferNm}`);
+}
+
+// ============ NOTAM API ============
+
+export async function getRouteNotams(
+  routeId: string,
+  alternateIcaos?: string[],
+  bufferNm: number = 10,
+  flightTime?: string,
+): Promise<RouteNotamResponse> {
+  const params = new URLSearchParams();
+  if (alternateIcaos && alternateIcaos.length > 0) {
+    params.set("alternate_icaos", alternateIcaos.join(","));
+  }
+  params.set("buffer_nm", bufferNm.toString());
+  if (flightTime) {
+    params.set("flight_time", flightTime);
+  }
+  return apiFetch<RouteNotamResponse>(`/api/notam/${routeId}?${params.toString()}`);
+}
+
+export async function generateNotamBriefing(
+  departureIcao: string,
+  destinationIcao: string,
+  departure: NotamData[],
+  destination: NotamData[],
+  firs: NotamData[],
+  enroute: NotamData[],
+  flightDate?: string,
+): Promise<BriefingResponse> {
+  return apiFetch<BriefingResponse>("/api/notam/briefing", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      departure_icao: departureIcao,
+      destination_icao: destinationIcao,
+      departure,
+      destination,
+      firs,
+      enroute,
+      flight_date: flightDate,
+    }),
+  });
 }

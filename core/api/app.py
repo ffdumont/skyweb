@@ -20,6 +20,7 @@ from core.api.routes import (  # noqa: E402
     airspaces,
     community,
     dossiers,
+    notam,
     routes,
     waypoints,
     weather,
@@ -87,6 +88,7 @@ app.include_router(aerodromes.router, prefix="/api")
 app.include_router(aerodrome_notes.router, prefix="/api")
 app.include_router(airspaces.router, prefix="/api")
 app.include_router(weather.router, prefix="/api")
+app.include_router(notam.router, prefix="/api")
 app.include_router(community.router, prefix="/api")
 
 
