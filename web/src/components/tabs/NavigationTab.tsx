@@ -30,6 +30,34 @@ const SERVICE_TYPE_PRIORITY: Record<string, number> = {
   "Information": 0, "Approche": 1, "Tour": 2, "Auto-information": 5,
 };
 
+/**
+ * Exception zones that should NOT be treated as red/dangerous zones.
+ * Custom frequencies can be specified here for zones missing from database.
+ */
+interface ZoneException {
+  identifier: string;
+  customFrequency?: string;
+  callsign?: string;
+}
+
+const ZONE_EXCEPTIONS: ZoneException[] = [
+  { identifier: "R 324", customFrequency: "120.075", callsign: "VEILLE PARIS" },
+];
+
+/** Normalize identifier for comparison (remove spaces, uppercase) */
+function normalizeIdentifier(id: string): string {
+  return id.toUpperCase().replace(/\s+/g, "");
+}
+
+/** Get exception zone info if exists */
+function getExceptionInfo(identifier: string): ZoneException | null {
+  const normalizedId = normalizeIdentifier(identifier);
+  return ZONE_EXCEPTIONS.find((ex) => {
+    const normalizedEx = normalizeIdentifier(ex.identifier);
+    return normalizedId.includes(normalizedEx) || normalizedEx.includes(normalizedId);
+  }) ?? null;
+}
+
 export default function NavigationTab() {
   const routeData = useDossierStore((s) => s.routeData);
   const airspaceAnalysis = useDossierStore((s) => s.airspaceAnalysis);
@@ -229,9 +257,9 @@ export default function NavigationTab() {
                   {entry.frequencies.length > 0 ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       {entry.frequencies.map((freq, j) => (
-                        <div key={j}>
-                          <span style={{ color: "#555" }}>{freq.callsign}</span>
-                          <span style={{ color: "#0066cc", marginLeft: 6 }}>{freq.frequency}</span>
+                        <div key={j} style={{ color: freq.isClassA ? "#c00" : undefined }}>
+                          <span style={{ color: freq.isClassA ? "#c00" : "#555" }}>{freq.callsign}</span>
+                          <span style={{ color: freq.isClassA ? "#c00" : "#0066cc", marginLeft: 6, fontWeight: freq.isClassA ? 600 : undefined }}>{freq.frequency}</span>
                         </div>
                       ))}
                     </div>
@@ -290,7 +318,7 @@ interface NavLogEntry {
   cumulativeDistNm: number;
   cumulativeTimeMin: number;
   fuelUsedL: number;
-  frequencies: { callsign: string; frequency: string }[];
+  frequencies: { callsign: string; frequency: string; isClassA: boolean }[];
   hasWindData: boolean;
 }
 
@@ -336,7 +364,7 @@ function formatAltitude(ft: number): string {
 function findLegAirspaces(
   legs: LegAirspaces[] | undefined,
   segment: SegmentData,
-  segmentIndex: number
+  _segmentIndex: number
 ): LegAirspaces | null {
   if (!legs || legs.length === 0) return null;
 
@@ -346,31 +374,66 @@ function findLegAirspaces(
   );
   if (byName) return byName;
 
-  // Fallback: match by sequence index (segment i = from_seq i to to_seq i+1)
-  const bySeq = legs.find(
-    (leg) => leg.from_seq === segmentIndex && leg.to_seq === segmentIndex + 1
+  // Try matching by destination (most reliable - find leg ending at segment's destination)
+  const byDestination = legs.find((leg) =>
+    leg.to_waypoint.includes(segment.to) ||
+    segment.to.includes(leg.to_waypoint)
   );
-  if (bySeq) return bySeq;
+  if (byDestination) return byDestination;
 
-  // Last resort: use segment at same index if available
-  if (segmentIndex < legs.length) {
-    return legs[segmentIndex];
-  }
+  // Try partial name match - require BOTH from AND to to match
+  const byPartialName = legs.find((leg) => {
+    const fromMatch =
+      leg.from_waypoint.includes(segment.from) ||
+      segment.from.includes(leg.from_waypoint);
+    const toMatch =
+      leg.to_waypoint.includes(segment.to) ||
+      segment.to.includes(leg.to_waypoint);
+    return fromMatch && toMatch;
+  });
+  if (byPartialName) return byPartialName;
+
+  // Try matching by origin only
+  const byOrigin = legs.find((leg) =>
+    leg.from_waypoint.includes(segment.from) ||
+    segment.from.includes(leg.from_waypoint)
+  );
+  if (byOrigin) return byOrigin;
 
   return null;
 }
 
-function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: string; frequency: string }[] {
+function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: string; frequency: string; isClassA: boolean }[] {
   if (!legAirspaces) return [];
 
-  const frequencies: { callsign: string; frequency: string; priority: number }[] = [];
+  const frequencies: { callsign: string; frequency: string; priority: number; isClassA: boolean }[] = [];
   const seenCallsigns = new Set<string>(); // Only one frequency per callsign
 
   // Only use route_airspaces (airspaces actually traversed), not corridor_airspaces
   const airspaces = legAirspaces.route_airspaces || [];
 
   for (const airspace of airspaces) {
-    for (const service of airspace.services) {
+    // Check if this is an exception zone
+    const exceptionInfo = getExceptionInfo(airspace.identifier);
+    const isException = exceptionInfo !== null;
+
+    // Check if this is a TMA class A (but not if it's an exception)
+    const isClassA = !isException && airspace.airspace_type === "TMA" && airspace.airspace_class === "A";
+
+    // If exception zone has a custom frequency, add it
+    if (exceptionInfo?.customFrequency && exceptionInfo?.callsign) {
+      if (!seenCallsigns.has(exceptionInfo.callsign)) {
+        seenCallsigns.add(exceptionInfo.callsign);
+        frequencies.push({
+          callsign: exceptionInfo.callsign,
+          frequency: exceptionInfo.customFrequency,
+          priority: 1, // Medium priority (like APP)
+          isClassA: false,
+        });
+      }
+    }
+
+    for (const service of airspace.services || []) {
       const priority = SERVICE_TYPE_PRIORITY[service.service_type];
       if (priority === undefined) continue; // Skip irrelevant services
 
@@ -378,7 +441,7 @@ function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: stri
       if (seenCallsigns.has(service.callsign)) continue;
 
       // Find the first VHF frequency (118-137 MHz range), excluding 121.5 (emergency)
-      const vhfFreq = service.frequencies.find((f) => {
+      const vhfFreq = (service.frequencies || []).find((f) => {
         const mhz = parseFloat(f.frequency_mhz);
         return mhz >= 118 && mhz <= 137 && Math.abs(mhz - 121.5) > 0.01;
       });
@@ -389,6 +452,7 @@ function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: stri
           callsign: service.callsign,
           frequency: vhfFreq.frequency_mhz,
           priority,
+          isClassA,
         });
       }
     }
@@ -397,7 +461,7 @@ function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: stri
   // Sort by priority (SIV/Information first, then APP/Approche, then TWR/Tour, etc.)
   frequencies.sort((a, b) => a.priority - b.priority);
 
-  return frequencies.map(({ callsign, frequency }) => ({ callsign, frequency }));
+  return frequencies.map(({ callsign, frequency, isClassA }) => ({ callsign, frequency, isClassA }));
 }
 
 function getWindDataForSegment(

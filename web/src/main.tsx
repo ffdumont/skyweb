@@ -1,6 +1,6 @@
 import { StrictMode, Component, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
-import "cesium/Build/Cesium/Widgets/widgets.css";
+// Note: Cesium CSS is imported only in AirspacesTab to avoid global style conflicts
 import App from "./App";
 
 class ErrorBoundary extends Component<

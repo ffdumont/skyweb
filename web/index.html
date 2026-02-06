@@ -16,6 +16,15 @@
         color: #1a1a2e;
         background: #f5f6fa;
       }
+      /* Prevent Cesium widgets from affecting global layout */
+      .cesium-viewer, .cesium-widget {
+        contain: strict;
+      }
+      /* Ensure no horizontal overflow from any child */
+      #root > * {
+        max-width: 100vw;
+        overflow-x: clip;
+      }
     </style>
   </head>
   <body>

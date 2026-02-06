@@ -65,6 +65,57 @@ const OUTLINE_COLORS: Record<string, Color> = {
 const DEFAULT_FILL = Color.fromCssColorString("rgba(128,128,128,0.10)");
 const DEFAULT_OUTLINE = Color.fromCssColorString("rgba(128,128,128,0.4)");
 
+// TMA class A colors (same as restricted zones)
+const TMA_CLASS_A_FILL = Color.fromCssColorString("rgba(200,0,0,0.22)");
+const TMA_CLASS_A_OUTLINE = Color.fromCssColorString("rgba(200,0,0,0.7)");
+
+/** Check if airspace is TMA class A (requires clearance like restricted zones) */
+function isTmaClassA(as: AirspaceIntersection): boolean {
+  return as.airspace_type === "TMA" && as.airspace_class === "A";
+}
+
+/**
+ * Exception zones that should NOT be treated as red/dangerous zones.
+ * These zones will have gray display instead of red, and won't trigger
+ * orange route coloring. Custom frequencies can be specified here.
+ */
+interface ZoneException {
+  identifier: string;        // Zone identifier (e.g., "R 324")
+  customFrequency?: string;  // Custom frequency if not in database
+  callsign?: string;         // Callsign for the frequency
+}
+
+const ZONE_EXCEPTIONS: ZoneException[] = [
+  { identifier: "R 324", customFrequency: "120.075", callsign: "VEILLE PARIS" },
+];
+
+/** Normalize identifier for comparison (remove spaces, uppercase) */
+function normalizeIdentifier(id: string): string {
+  return id.toUpperCase().replace(/\s+/g, "");
+}
+
+/** Check if an airspace is in the exception list */
+function isExceptionZone(as: AirspaceIntersection): boolean {
+  const normalizedAs = normalizeIdentifier(as.identifier);
+  return ZONE_EXCEPTIONS.some((ex) => {
+    const normalizedEx = normalizeIdentifier(ex.identifier);
+    return normalizedAs.includes(normalizedEx) || normalizedEx.includes(normalizedAs);
+  });
+}
+
+/** Get exception zone info if exists */
+function getExceptionInfo(as: AirspaceIntersection): ZoneException | null {
+  const normalizedAs = normalizeIdentifier(as.identifier);
+  return ZONE_EXCEPTIONS.find((ex) => {
+    const normalizedEx = normalizeIdentifier(ex.identifier);
+    return normalizedAs.includes(normalizedEx) || normalizedEx.includes(normalizedAs);
+  }) ?? null;
+}
+
+// Exception zone colors (gray)
+const EXCEPTION_FILL = Color.fromCssColorString("rgba(128,128,128,0.15)");
+const EXCEPTION_OUTLINE = Color.fromCssColorString("rgba(128,128,128,0.5)");
+
 export default function AirspacesTab() {
   const routeData = useDossierStore((s) => s.routeData);
   const currentRouteId = useDossierStore((s) => s.currentRouteId);
@@ -256,6 +307,24 @@ export default function AirspacesTab() {
     };
   }, []);
 
+  // Check if a leg crosses a red zone (D, R, P, or TMA class A), excluding exception zones
+  const legCrossesRedZone = useCallback((legIndex: number): boolean => {
+    if (!airspaceAnalysis?.legs) return false;
+    const leg = airspaceAnalysis.legs[legIndex];
+    if (!leg) return false;
+
+    return leg.route_airspaces.some((as) => {
+      // Skip exception zones
+      if (isExceptionZone(as)) return false;
+      return (
+        as.airspace_type === "D" ||
+        as.airspace_type === "R" ||
+        as.airspace_type === "P" ||
+        isTmaClassA(as)
+      );
+    });
+  }, [airspaceAnalysis]);
+
   // Update route display
   useEffect(() => {
     if (!isViewerReady) return;
@@ -266,23 +335,32 @@ export default function AirspacesTab() {
 
     if (!routeData?.waypoints?.length) return;
 
-    // Add route polyline
-    const positions = routeData.waypoints.map((wp) =>
-      Cartesian3.fromDegrees(wp.lon, wp.lat, (wp.altitude_ft || 0) * 0.3048)
-    );
+    const waypoints = routeData.waypoints;
 
-    ds.entities.add({
-      polyline: {
-        positions,
-        width: 3,
-        material: Color.fromCssColorString("#1e90ff"),
-        clampToGround: false,
-      },
-    });
+    // Draw route segment by segment with color based on red zone crossing
+    for (let i = 0; i < waypoints.length - 1; i++) {
+      const wp1 = waypoints[i];
+      const wp2 = waypoints[i + 1];
+      const crossesRed = legCrossesRedZone(i);
+
+      const segmentPositions = [
+        Cartesian3.fromDegrees(wp1.lon, wp1.lat, (wp1.altitude_ft || 0) * 0.3048),
+        Cartesian3.fromDegrees(wp2.lon, wp2.lat, (wp2.altitude_ft || 0) * 0.3048),
+      ];
+
+      ds.entities.add({
+        polyline: {
+          positions: segmentPositions,
+          width: crossesRed ? 4 : 3,
+          material: Color.fromCssColorString(crossesRed ? "#ff8c00" : "#1e90ff"),
+          clampToGround: false,
+        },
+      });
+    }
 
     // Add waypoint markers
-    routeData.waypoints.forEach((wp, i) => {
-      const isEndpoint = i === 0 || i === routeData.waypoints.length - 1;
+    waypoints.forEach((wp, i) => {
+      const isEndpoint = i === 0 || i === waypoints.length - 1;
       if (!wp.is_intermediate) {
         ds.entities.add({
           position: Cartesian3.fromDegrees(wp.lon, wp.lat),
@@ -305,7 +383,7 @@ export default function AirspacesTab() {
         });
       }
     });
-  }, [routeData, isViewerReady]);
+  }, [routeData, isViewerReady, legCrossesRedZone]);
 
   // Update airspace display
   const updateAirspaces = useCallback(() => {
@@ -320,8 +398,21 @@ export default function AirspacesTab() {
       if (!selectedKeys.has(key)) continue;
       if (!as.geometry_geojson) continue;
 
-      const fillColor = FILL_COLORS[as.airspace_type] ?? DEFAULT_FILL;
-      const outlineColor = OUTLINE_COLORS[as.airspace_type] ?? DEFAULT_OUTLINE;
+      // Determine colors: exception zones are gray, TMA class A are red, others use type colors
+      const isException = isExceptionZone(as);
+      const isClassA = !isException && isTmaClassA(as);
+      let fillColor: Color;
+      let outlineColor: Color;
+      if (isException) {
+        fillColor = EXCEPTION_FILL;
+        outlineColor = EXCEPTION_OUTLINE;
+      } else if (isClassA) {
+        fillColor = TMA_CLASS_A_FILL;
+        outlineColor = TMA_CLASS_A_OUTLINE;
+      } else {
+        fillColor = FILL_COLORS[as.airspace_type] ?? DEFAULT_FILL;
+        outlineColor = OUTLINE_COLORS[as.airspace_type] ?? DEFAULT_OUTLINE;
+      }
 
       // Convert feet to meters
       const floorMeters = as.lower_limit_ft * 0.3048;
@@ -432,8 +523,26 @@ export default function AirspacesTab() {
                   {leg.route_airspaces.map((as, i) => {
                     const key = `${as.identifier}_${as.partie_id}`;
                     const isSelected = airspaceSelection[key] ?? false;
+                    const exceptionInfo = getExceptionInfo(as);
+                    const isException = exceptionInfo !== null;
+                    const isClassA = !isException && isTmaClassA(as);
+
+                    // Debug: Log R zones to check identifier format
+                    if (as.airspace_type === "R") {
+                      console.log("[AirspacesTab] R zone:", as.identifier, "normalized:", normalizeIdentifier(as.identifier), "isException:", isException);
+                    }
+
+                    // Determine background and text colors
+                    const bgColor = isException ? "#e8e8e8" : (isClassA ? "#ffe0e0" : undefined);
+                    const textColor = isClassA ? "#c00" : undefined;
+                    const badgeColor = isException ? "#888" : (isClassA ? "#c00" : (TYPE_COLORS[as.airspace_type] ?? "#888"));
+
+                    // Get frequency: use custom from exception, or from database
+                    const displayFrequency = exceptionInfo?.customFrequency || getPrimaryFrequency(as) || "—";
+                    const frequencyColor = isClassA ? "#c00" : "#0066cc";
+
                     return (
-                      <tr key={i} style={{ borderBottom: "1px solid #eee" }}>
+                      <tr key={i} style={{ borderBottom: "1px solid #eee", background: bgColor }}>
                         <td style={tdStyle}>
                           <input
                             type="checkbox"
@@ -441,14 +550,14 @@ export default function AirspacesTab() {
                             onChange={() => toggleAirspace(key)}
                           />
                         </td>
-                        <td style={{ ...tdStyle, fontWeight: 500 }}>{as.identifier}</td>
+                        <td style={{ ...tdStyle, fontWeight: 500, color: textColor }}>{as.identifier}</td>
                         <td style={tdStyle}>
                           <span
                             style={{
                               fontSize: 10,
                               fontWeight: 700,
                               color: "#fff",
-                              background: TYPE_COLORS[as.airspace_type] ?? "#888",
+                              background: badgeColor,
                               padding: "1px 6px",
                               borderRadius: 3,
                             }}
@@ -456,15 +565,15 @@ export default function AirspacesTab() {
                             {as.airspace_type}
                           </span>
                         </td>
-                        <td style={tdStyle}>{as.airspace_class || "—"}</td>
+                        <td style={{ ...tdStyle, color: textColor, fontWeight: isClassA ? 600 : undefined }}>{as.airspace_class || "—"}</td>
                         <td style={{ ...tdStyle, textAlign: "right", fontFamily: "monospace" }}>
                           {as.lower_limit_ft === 0 ? "SFC" : `${as.lower_limit_ft} ft`}
                         </td>
                         <td style={{ ...tdStyle, textAlign: "right", fontFamily: "monospace" }}>
                           {as.upper_limit_ft} ft
                         </td>
-                        <td style={{ ...tdStyle, textAlign: "right", fontFamily: "monospace", color: "#0066cc" }}>
-                          {getPrimaryFrequency(as) || "—"}
+                        <td style={{ ...tdStyle, textAlign: "right", fontFamily: "monospace", color: frequencyColor, fontWeight: isClassA ? 600 : undefined }}>
+                          {displayFrequency}
                         </td>
                       </tr>
                     );
