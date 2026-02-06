@@ -6,11 +6,15 @@
  */
 
 import type {
+  AerodromeInfo,
+  AerodromeNotes,
   AircraftSummary,
+  AlternatesResponse,
   CreateDossierPayload,
   DossierResponse,
   GroundPoint,
   RouteAirspaceAnalysis,
+  SaveAerodromeNotesRequest,
   SimulationRequest,
   SimulationResponse,
   UploadRouteResponse,
@@ -153,4 +157,52 @@ export async function runWeatherSimulation(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
   });
+}
+
+// ============ Aerodrome API ============
+
+export async function getAerodrome(icao: string): Promise<AerodromeInfo> {
+  return apiFetch<AerodromeInfo>(`/api/aerodromes/${icao.toUpperCase()}`);
+}
+
+// ============ Aerodrome Notes API ============
+
+export async function listAerodromeNotes(): Promise<AerodromeNotes[]> {
+  return apiFetch<AerodromeNotes[]>("/api/aerodrome-notes");
+}
+
+export async function getAerodromeNotes(icao: string): Promise<AerodromeNotes | null> {
+  return apiFetch<AerodromeNotes | null>(`/api/aerodrome-notes/${icao.toUpperCase()}`);
+}
+
+export async function getMultipleAerodromeNotes(
+  icaoCodes: string[],
+): Promise<Record<string, AerodromeNotes>> {
+  if (icaoCodes.length === 0) return {};
+  const codes = icaoCodes.map((c) => c.toUpperCase()).join(",");
+  return apiFetch<Record<string, AerodromeNotes>>(`/api/aerodrome-notes/batch/${codes}`);
+}
+
+export async function saveAerodromeNotes(
+  icao: string,
+  notes: SaveAerodromeNotesRequest,
+): Promise<AerodromeNotes> {
+  return apiFetch<AerodromeNotes>(`/api/aerodrome-notes/${icao.toUpperCase()}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(notes),
+  });
+}
+
+export async function deleteAerodromeNotes(icao: string): Promise<void> {
+  await apiFetch(`/api/aerodrome-notes/${icao.toUpperCase()}`, { method: "DELETE" });
+}
+
+// ============ Route Alternates API ============
+
+export async function getRouteAlternates(
+  routeId: string,
+  bufferNm: number = 15,
+): Promise<AlternatesResponse> {
+  return apiFetch<AlternatesResponse>(`/api/routes/${routeId}/alternates?buffer_nm=${bufferNm}`);
 }

@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
 from pydantic import BaseModel
 
 from core.api.deps import (
+    get_aerodrome_query,
     get_airspace_query,
     get_current_user,
     get_current_user_or_demo,
@@ -27,7 +28,9 @@ from core.contracts.waypoint import UserWaypoint
 from core.persistence.repositories.route_repo import RouteRepository
 from core.persistence.repositories.waypoint_repo import WaypointRepository
 from core.persistence.errors import SpatiaLiteNotReadyError
+from core.persistence.spatialite.aerodrome_query import AerodromeQueryService
 from core.persistence.spatialite.airspace_query import AirspaceQueryService
+from core.contracts.enums import AerodromeStatus
 
 KML_NS = "{http://www.opengis.net/kml/2.2}"
 
@@ -639,3 +642,231 @@ async def update_route_altitudes(
     await route_repo.update(user_id, route_id, route)
 
     return {"status": "ok", "updated_legs": len(request.legs)}
+
+
+# ============ Alternate Aerodromes ============
+
+
+class AlternateAerodrome(BaseModel):
+    """An alternate aerodrome with distance info."""
+    icao: str
+    name: str
+    latitude: float
+    longitude: float
+    elevation_ft: int | None
+    status: str
+    vfr: bool
+    private: bool
+    distance_to_arr_nm: float
+    route_position_nm: float  # Distance along route where it's closest
+
+
+class AlternatesResponse(BaseModel):
+    """Response for alternate aerodromes along a route."""
+    route_id: str
+    primary: list[AlternateAerodrome]  # CAP aerodromes, VFR open
+    secondary: list[AlternateAerodrome]  # MIL/Private as backup
+
+
+@router.get("/{route_id}/alternates")
+async def get_route_alternates(
+    route_id: str,
+    buffer_nm: float = 15.0,
+    user_id: str = Depends(get_current_user_or_demo),
+    route_repo: RouteRepository = Depends(get_route_repo),
+    wp_repo: WaypointRepository = Depends(get_waypoint_repo),
+    aerodrome_svc: AerodromeQueryService = Depends(get_aerodrome_query),
+) -> AlternatesResponse:
+    """Find alternate aerodromes along the route.
+
+    Returns aerodromes that satisfy the "decreasing distance" constraint:
+    as you progress along the route, alternates should be progressively
+    closer to the destination.
+
+    Primary alternates: CAP status, VFR open
+    Secondary alternates: MIL/Private (backup options)
+    """
+    route = await route_repo.get(user_id, route_id)
+    if route is None:
+        raise HTTPException(status_code=404, detail="Route not found")
+
+    # Resolve waypoint coordinates
+    wp_ids = [ref.waypoint_id for ref in route.waypoints]
+    wp_map = await wp_repo.get_by_ids(user_id, wp_ids)
+
+    # Build coordinate list in sequence order
+    route_coords: list[tuple[float, float]] = []
+    for ref in sorted(route.waypoints, key=lambda r: r.sequence_order):
+        wp = wp_map.get(ref.waypoint_id)
+        if wp:
+            route_coords.append((wp.latitude, wp.longitude))
+
+    if len(route_coords) < 2:
+        return AlternatesResponse(route_id=route_id, primary=[], secondary=[])
+
+    dep_coord = route_coords[0]
+    arr_coord = route_coords[-1]
+
+    # Get DEP and ARR ICAO codes to exclude them
+    def extract_icao(name: str) -> str | None:
+        """Extract ICAO code from waypoint name (e.g., 'LFXU - LES MUREAUX' -> 'LFXU')."""
+        import re
+        match = re.match(r"^([A-Z]{4})", name.upper())
+        return match.group(1) if match else None
+
+    dep_wp = wp_map.get(route.waypoints[0].waypoint_id)
+    arr_wp = wp_map.get(route.waypoints[-1].waypoint_id)
+    exclude_icaos = []
+    if dep_wp:
+        icao = extract_icao(dep_wp.name)
+        if icao:
+            exclude_icaos.append(icao)
+    if arr_wp:
+        icao = extract_icao(arr_wp.name)
+        if icao:
+            exclude_icaos.append(icao)
+
+    # Find aerodromes near the route
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(
+        "Searching alternates: route_coords=%d points, buffer=%s nm, exclude=%s",
+        len(route_coords), buffer_nm, exclude_icaos
+    )
+    try:
+        candidates = await asyncio.to_thread(
+            aerodrome_svc.search_near_route,
+            route_coords,
+            buffer_nm,
+            exclude_icaos,
+        )
+        logger.info("Found %d candidate aerodromes near route", len(candidates))
+    except (SpatiaLiteNotReadyError, Exception) as e:
+        # SpatiaLite not ready or DB not loaded - return empty alternates
+        logger.warning("Failed to load alternates: %s", e, exc_info=True)
+        return AlternatesResponse(route_id=route_id, primary=[], secondary=[])
+
+    if not candidates:
+        return AlternatesResponse(route_id=route_id, primary=[], secondary=[])
+
+    # Calculate distances and route positions for each candidate
+    def calc_route_position(lat: float, lon: float) -> float:
+        """Find the cumulative distance along route where aerodrome is closest."""
+        cum_dist = 0.0
+        min_cross_dist = float("inf")
+        best_position = 0.0
+
+        for i in range(len(route_coords) - 1):
+            lat1, lon1 = route_coords[i]
+            lat2, lon2 = route_coords[i + 1]
+            seg_len = _haversine_nm_py(lat1, lon1, lat2, lon2)
+
+            # Find closest point on segment
+            if seg_len < 0.1:
+                dist = _haversine_nm_py(lat, lon, lat1, lon1)
+                if dist < min_cross_dist:
+                    min_cross_dist = dist
+                    best_position = cum_dist
+            else:
+                # Check multiple points along segment
+                for t in [0.0, 0.25, 0.5, 0.75, 1.0]:
+                    plat = lat1 + t * (lat2 - lat1)
+                    plon = lon1 + t * (lon2 - lon1)
+                    dist = _haversine_nm_py(lat, lon, plat, plon)
+                    if dist < min_cross_dist:
+                        min_cross_dist = dist
+                        best_position = cum_dist + t * seg_len
+
+            cum_dist += seg_len
+
+        return best_position
+
+    alternates_data = []
+    for ad in candidates:
+        dist_to_arr = _haversine_nm_py(ad.latitude, ad.longitude, arr_coord[0], arr_coord[1])
+        route_pos = calc_route_position(ad.latitude, ad.longitude)
+        alternates_data.append({
+            "ad": ad,
+            "dist_to_arr": dist_to_arr,
+            "route_pos": route_pos,
+        })
+
+    # Sort by route position
+    alternates_data.sort(key=lambda x: x["route_pos"])
+
+    # Apply "decreasing distance" constraint
+    # As we progress along the route, alternates should be closer to destination
+    def filter_decreasing_distance(data: list[dict]) -> list[dict]:
+        """Keep only alternates that satisfy the decreasing distance constraint."""
+        if not data:
+            return []
+
+        result = []
+        max_allowed_dist = float("inf")
+
+        for item in data:
+            # Skip if this alternate is farther from destination than previous ones
+            # that are later in the route
+            if item["dist_to_arr"] <= max_allowed_dist:
+                result.append(item)
+                max_allowed_dist = item["dist_to_arr"]
+
+        return result
+
+    # Separate into primary (CAP status) and secondary (all others)
+    # Simplified: only use status field, ignore vfr/private
+    for d in alternates_data[:5]:
+        ad = d["ad"]
+        is_cap = ad.status == AerodromeStatus.CAP
+        logger.info(
+            "Candidate %s: status=%r (is_cap=%s) → %s",
+            ad.icao, ad.status, is_cap,
+            "PRIMARY" if is_cap else "SECONDARY"
+        )
+
+    primary_candidates = [
+        d for d in alternates_data
+        if d["ad"].status == AerodromeStatus.CAP
+    ]
+    secondary_candidates = [
+        d for d in alternates_data
+        if d["ad"].status != AerodromeStatus.CAP
+    ]
+
+    # Apply decreasing distance filter
+    primary_filtered = filter_decreasing_distance(primary_candidates)
+    secondary_filtered = filter_decreasing_distance(secondary_candidates)
+
+    logger.info(
+        "Alternates filtered: %d primary (from %d), %d secondary (from %d)",
+        len(primary_filtered), len(primary_candidates),
+        len(secondary_filtered), len(secondary_candidates)
+    )
+
+    def to_alternate(d: dict) -> AlternateAerodrome:
+        ad = d["ad"]
+        # Handle status as either enum or string
+        if hasattr(ad.status, "value"):
+            status_str = ad.status.value
+        elif ad.status:
+            status_str = str(ad.status)
+        else:
+            status_str = "CAP"
+        return AlternateAerodrome(
+            icao=ad.icao,
+            name=ad.name,
+            latitude=ad.latitude,
+            longitude=ad.longitude,
+            elevation_ft=ad.elevation_ft,
+            status=status_str,
+            vfr=ad.vfr,
+            private=ad.private,
+            distance_to_arr_nm=round(d["dist_to_arr"], 1),
+            route_position_nm=round(d["route_pos"], 1),
+        )
+
+    return AlternatesResponse(
+        route_id=route_id,
+        primary=[to_alternate(d) for d in primary_filtered],
+        secondary=[to_alternate(d) for d in secondary_filtered],
+    )

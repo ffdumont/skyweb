@@ -14,6 +14,7 @@ load_dotenv()
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 
 from core.api.routes import (  # noqa: E402
+    aerodrome_notes,
     aerodromes,
     aircraft,
     airspaces,
@@ -83,6 +84,7 @@ app.include_router(aircraft.router, prefix="/api")
 app.include_router(dossiers.router, prefix="/api")
 app.include_router(routes.router, prefix="/api")
 app.include_router(aerodromes.router, prefix="/api")
+app.include_router(aerodrome_notes.router, prefix="/api")
 app.include_router(airspaces.router, prefix="/api")
 app.include_router(weather.router, prefix="/api")
 app.include_router(community.router, prefix="/api")

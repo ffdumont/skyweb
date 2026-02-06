@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from fastapi import Depends, Request
 
 from core.api.auth import UserClaims, verify_firebase_token, verify_firebase_token_or_demo
+from core.persistence.repositories.aerodrome_notes_repo import AerodromeNotesRepository
 from core.persistence.repositories.aircraft_repo import AircraftRepository
 from core.persistence.repositories.community_repo import CommunityRepository
 from core.persistence.repositories.dossier_repo import DossierRepository
@@ -62,6 +63,10 @@ def get_dossier_repo() -> DossierRepository:
 
 def get_community_repo() -> CommunityRepository:
     return CommunityRepository()
+
+
+def get_aerodrome_notes_repo() -> AerodromeNotesRepository:
+    return AerodromeNotesRepository()
 
 
 # ------------------------------------------------------------------

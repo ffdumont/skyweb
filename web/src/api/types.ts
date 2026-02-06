@@ -209,3 +209,102 @@ export interface SimulationResponse {
   waypoints: WaypointContext[];
   model_results: ModelResult[];
 }
+
+// ============ Aerodrome Types ============
+
+export interface AerodromeFrequency {
+  frequency_mhz: number;
+  spacing: string | null;
+  hours_code?: string | null;
+  hours_text?: string | null;
+}
+
+export interface AerodromeService {
+  service_type: string;
+  callsign: string | null;
+  hours_code?: string | null;
+  hours_text?: string | null;
+  frequencies: AerodromeFrequency[];
+}
+
+export interface Runway {
+  designator: string;
+  length_m: number | null;
+  width_m: number | null;
+  is_main: boolean;
+  surface: string | null;
+  lda1_m: number | null;
+  lda2_m: number | null;
+}
+
+export interface AerodromeInfo {
+  icao: string;
+  name: string;
+  status: "CAP" | "MIL" | "RES" | null;
+  vfr: boolean;
+  private: boolean;
+  latitude: number;
+  longitude: number;
+  elevation_ft: number | null;
+  mag_variation: number | null;
+  ref_temperature: number | null;
+  ats_hours: string | null;
+  fuel_available: string | null;
+  fuel_remarks: string | null;
+  runways: Runway[];
+  services: AerodromeService[];
+}
+
+// ============ Aerodrome Notes Types ============
+
+export interface Obstacle {
+  description: string;
+  distance_nm?: number | null;
+  direction?: string | null;
+  height_ft?: number | null;
+  lit?: boolean | null;
+}
+
+export interface AerodromeNotes {
+  icao: string;
+  runway_in_use?: string | null;
+  circuit_direction?: Record<string, "left" | "right"> | null;
+  pattern_altitude_ft?: number | null;
+  entry_point?: string | null;
+  exit_point?: string | null;
+  special_procedures?: string | null;
+  obstacles: Obstacle[];
+  updated_at?: string | null;
+  completion_status: "empty" | "partial" | "complete";
+}
+
+export interface SaveAerodromeNotesRequest {
+  runway_in_use?: string | null;
+  circuit_direction?: Record<string, string> | null;
+  pattern_altitude_ft?: number | null;
+  entry_point?: string | null;
+  exit_point?: string | null;
+  special_procedures?: string | null;
+  obstacles?: Obstacle[];
+}
+
+// ============ Alternate Aerodromes Types ============
+
+export interface AlternateAerodrome {
+  icao: string;
+  name: string;
+  latitude: number;
+  longitude: number;
+  elevation_ft: number | null;
+  status: string;
+  vfr: boolean;
+  private: boolean;
+  distance_to_arr_nm: number;
+  route_position_nm: number;
+}
+
+export interface AlternatesResponse {
+  route_id: string;
+  primary: AlternateAerodrome[];
+  secondary: AlternateAerodrome[];
+}
