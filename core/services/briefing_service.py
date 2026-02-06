@@ -34,6 +34,14 @@ Format de sortie:
 """
 
 
+def _clean_text(text: str) -> str:
+    """Remove BOM and other problematic characters from text."""
+    if not text:
+        return ""
+    # Remove BOM (Byte Order Mark) and other zero-width characters
+    return text.replace('\ufeff', '').replace('\ufffe', '').strip()
+
+
 def format_notams_for_briefing(
     departure_icao: str,
     destination_icao: str,
@@ -54,25 +62,29 @@ def format_notams_for_briefing(
     if departure_notams:
         lines.append(f"=== NOTAMS DEPART ({departure_icao}) ===")
         for n in departure_notams:
-            lines.append(f"[{n.get('id', 'N/A')}] {n.get('message', n.get('raw', ''))}")
+            msg = _clean_text(n.get('message', n.get('raw', '')))
+            lines.append(f"[{n.get('id', 'N/A')}] {msg}")
         lines.append("")
 
     if destination_notams:
         lines.append(f"=== NOTAMS DESTINATION ({destination_icao}) ===")
         for n in destination_notams:
-            lines.append(f"[{n.get('id', 'N/A')}] {n.get('message', n.get('raw', ''))}")
+            msg = _clean_text(n.get('message', n.get('raw', '')))
+            lines.append(f"[{n.get('id', 'N/A')}] {msg}")
         lines.append("")
 
     if fir_notams:
         lines.append("=== NOTAMS FIR ===")
         for n in fir_notams:
-            lines.append(f"[{n.get('id', 'N/A')}] {n.get('message', n.get('raw', ''))}")
+            msg = _clean_text(n.get('message', n.get('raw', '')))
+            lines.append(f"[{n.get('id', 'N/A')}] {msg}")
         lines.append("")
 
     if enroute_notams:
         lines.append("=== NOTAMS EN-ROUTE ===")
         for n in enroute_notams:
-            lines.append(f"[{n.get('id', 'N/A')}] {n.get('message', n.get('raw', ''))}")
+            msg = _clean_text(n.get('message', n.get('raw', '')))
+            lines.append(f"[{n.get('id', 'N/A')}] {msg}")
         lines.append("")
 
     if not any([departure_notams, destination_notams, fir_notams, enroute_notams]):
