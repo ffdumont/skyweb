@@ -429,65 +429,107 @@ export const useDossierStore = create<DossierState>((set, get) => ({
       return { airspaceSelection: selection };
     }),
 
-  toggleAcknowledgeRedZone: (key: string) => {
-    const { acknowledgedRedZones } = get();
-    const newAcknowledged = { ...acknowledgedRedZones, [key]: !acknowledgedRedZones[key] };
-    set({ acknowledgedRedZones: newAcknowledged });
-    // Recalculate airspace status after toggle
-    get().recalculateAirspaceStatus();
-  },
+  toggleAcknowledgeRedZone: (key: string) =>
+    set((s) => {
+      const newAcknowledged = { ...s.acknowledgedRedZones, [key]: !s.acknowledgedRedZones[key] };
 
-  recalculateAirspaceStatus: () => {
-    const { airspaceAnalysis, acknowledgedRedZones, dossier } = get();
-    if (!airspaceAnalysis || !dossier) return;
+      // Recalculate status inline with new acknowledged state
+      if (!s.airspaceAnalysis || !s.dossier) {
+        return { acknowledgedRedZones: newAcknowledged };
+      }
 
-    // Exception zones that are not really restricted (e.g., R 324 VFR transit)
-    const exceptionIds = ["R324", "R 324"];
-    const isException = (id: string) =>
-      exceptionIds.some((ex) => id.toUpperCase().replace(/\s+/g, "").includes(ex.toUpperCase().replace(/\s+/g, "")));
+      const exceptionIds = ["R324", "R 324"];
+      const isException = (id: string) =>
+        exceptionIds.some((ex) => id.toUpperCase().replace(/\s+/g, "").includes(ex.toUpperCase().replace(/\s+/g, "")));
 
-    let hasUnacknowledgedRedZone = false;
+      let hasUnacknowledgedRedZone = false;
 
-    for (const leg of airspaceAnalysis.legs) {
-      for (const as of leg.route_airspaces) {
-        // Check for red zones (D, R, P, or TMA class A), excluding exceptions
-        if (!isException(as.identifier)) {
-          const isRedZone =
-            as.airspace_type === "D" ||
-            as.airspace_type === "R" ||
-            as.airspace_type === "P" ||
-            (as.airspace_type === "TMA" && as.airspace_class === "A");
+      for (const leg of s.airspaceAnalysis.legs) {
+        for (const as of leg.route_airspaces) {
+          if (!isException(as.identifier)) {
+            const isRedZone =
+              as.airspace_type === "D" ||
+              as.airspace_type === "R" ||
+              as.airspace_type === "P" ||
+              (as.airspace_type === "TMA" && as.airspace_class === "A");
 
-          if (isRedZone) {
-            const key = `${as.identifier}_${as.partie_id}`;
-            if (!acknowledgedRedZones[key]) {
-              hasUnacknowledgedRedZone = true;
-              break;
+            if (isRedZone) {
+              const zoneKey = `${as.identifier}_${as.partie_id}`;
+              if (!newAcknowledged[zoneKey]) {
+                hasUnacknowledgedRedZone = true;
+                break;
+              }
             }
           }
         }
+        if (hasUnacknowledgedRedZone) break;
       }
-      if (hasUnacknowledgedRedZone) break;
-    }
 
-    const airspaceStatus = hasUnacknowledgedRedZone ? "alert" : "complete";
+      const airspaceStatus = hasUnacknowledgedRedZone ? "alert" : "complete";
+      const meteoStatus = s.dossier.sections.meteo;
+      const navStatus = airspaceStatus === "alert" || meteoStatus === "alert" ? "alert" :
+                        (meteoStatus === "complete" ? "complete" : s.dossier.sections.navigation);
 
-    // Navigation status combines airspaces and meteo: alert if either is alert
-    const meteoStatus = dossier.sections.meteo;
-    const navStatus = airspaceStatus === "alert" || meteoStatus === "alert" ? "alert" :
-                      (meteoStatus === "complete" ? "complete" : dossier.sections.navigation);
-
-    set({
-      dossier: {
-        ...dossier,
-        sections: {
-          ...dossier.sections,
-          airspaces: airspaceStatus,
-          ...(navStatus && { navigation: navStatus }),
+      return {
+        acknowledgedRedZones: newAcknowledged,
+        dossier: {
+          ...s.dossier,
+          sections: {
+            ...s.dossier.sections,
+            airspaces: airspaceStatus,
+            ...(navStatus && { navigation: navStatus }),
+          },
         },
-      },
-    });
-  },
+      };
+    }),
+
+  recalculateAirspaceStatus: () =>
+    set((s) => {
+      if (!s.airspaceAnalysis || !s.dossier) return s;
+
+      const exceptionIds = ["R324", "R 324"];
+      const isException = (id: string) =>
+        exceptionIds.some((ex) => id.toUpperCase().replace(/\s+/g, "").includes(ex.toUpperCase().replace(/\s+/g, "")));
+
+      let hasUnacknowledgedRedZone = false;
+
+      for (const leg of s.airspaceAnalysis.legs) {
+        for (const as of leg.route_airspaces) {
+          if (!isException(as.identifier)) {
+            const isRedZone =
+              as.airspace_type === "D" ||
+              as.airspace_type === "R" ||
+              as.airspace_type === "P" ||
+              (as.airspace_type === "TMA" && as.airspace_class === "A");
+
+            if (isRedZone) {
+              const key = `${as.identifier}_${as.partie_id}`;
+              if (!s.acknowledgedRedZones[key]) {
+                hasUnacknowledgedRedZone = true;
+                break;
+              }
+            }
+          }
+        }
+        if (hasUnacknowledgedRedZone) break;
+      }
+
+      const airspaceStatus = hasUnacknowledgedRedZone ? "alert" : "complete";
+      const meteoStatus = s.dossier.sections.meteo;
+      const navStatus = airspaceStatus === "alert" || meteoStatus === "alert" ? "alert" :
+                        (meteoStatus === "complete" ? "complete" : s.dossier.sections.navigation);
+
+      return {
+        dossier: {
+          ...s.dossier,
+          sections: {
+            ...s.dossier.sections,
+            airspaces: airspaceStatus,
+            ...(navStatus && { navigation: navStatus }),
+          },
+        },
+      };
+    }),
 
   // Weather simulation actions
   addWeatherSimulation: (simulation: SimulationResponse) =>
