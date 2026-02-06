@@ -105,6 +105,36 @@ export async function getRouteAnalysis(
   return apiFetch<RouteAirspaceAnalysis>(`/api/routes/${routeId}/analysis`);
 }
 
+/** Analyze route with custom altitude overrides (doesn't save to backend) */
+export interface LegAltitudeOverride {
+  from_seq: number;
+  to_seq: number;
+  planned_altitude_ft: number;
+}
+
+export async function getRouteAnalysisWithAltitudes(
+  routeId: string,
+  legs: LegAltitudeOverride[],
+): Promise<RouteAirspaceAnalysis> {
+  return apiFetch<RouteAirspaceAnalysis>(`/api/routes/${routeId}/analysis`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ legs }),
+  });
+}
+
+/** Save route altitude changes to backend */
+export async function updateRouteAltitudes(
+  routeId: string,
+  legs: LegAltitudeOverride[],
+): Promise<void> {
+  await apiFetch<{ status: string }>(`/api/routes/${routeId}/altitudes`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ legs }),
+  });
+}
+
 // ============ Weather API ============
 
 export async function getWeatherModels(): Promise<WeatherModel[]> {

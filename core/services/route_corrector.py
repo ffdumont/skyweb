@@ -105,32 +105,48 @@ def _assign_altitudes(
     pattern_alt_ft: int,
     min_alt_ft: int,
 ) -> list[CorrectedWaypoint]:
-    """Assign corrected altitudes.
+    """Assign corrected altitudes following SkyPath logic.
 
-    - DEP/ARR: ground elevation + pattern_alt_ft when ground is known,
+    - DEP: ground elevation + pattern_alt_ft when ground is known,
       otherwise KML altitude (with min_alt_ft floor).
-    - Enroute: KML altitude directly (planned flight altitude).
+    - Middle waypoints: altitude from PREVIOUS segment (= previous waypoint's KML altitude).
+      This creates the "delayed altitude" effect where climb happens AFTER the waypoint.
+    - ARR: ground elevation + pattern_alt_ft when ground is known.
     """
+    if len(waypoints) < 2:
+        return []
+
     result: list[CorrectedWaypoint] = []
+
+    # First, build list of KML altitudes for segment reference
+    kml_altitudes_ft = [wp.get("altitude_m", 0.0) * METERS_TO_FEET for wp in waypoints]
 
     for i, wp in enumerate(waypoints):
         alt_m = wp.get("altitude_m", 0.0)
-        alt_ft = alt_m * METERS_TO_FEET
 
         if i == 0:
+            # Departure: use ground + pattern, or KML altitude
             source = "departure"
             if dep_ground_ft is not None:
                 alt_ft = dep_ground_ft + pattern_alt_ft
-            elif alt_ft < 50:
-                alt_ft = min_alt_ft
+            else:
+                alt_ft = alt_m * METERS_TO_FEET
+                if alt_ft < 50:
+                    alt_ft = min_alt_ft
         elif i == len(waypoints) - 1:
+            # Arrival: use ground + pattern, or KML altitude
             source = "arrival"
             if arr_ground_ft is not None:
                 alt_ft = arr_ground_ft + pattern_alt_ft
-            elif alt_ft < 50:
-                alt_ft = min_alt_ft
+            else:
+                alt_ft = alt_m * METERS_TO_FEET
+                if alt_ft < 50:
+                    alt_ft = min_alt_ft
         else:
+            # Middle waypoints: use PREVIOUS waypoint's KML altitude
+            # This is the key SkyPath logic - altitude from previous segment
             source = "segment"
+            alt_ft = kml_altitudes_ft[i - 1]
 
         result.append(
             CorrectedWaypoint(

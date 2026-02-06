@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Response, UploadFile
+from pydantic import BaseModel
 
 from core.api.deps import (
     get_airspace_query,
@@ -516,3 +517,125 @@ async def analyze_route(
         "legs": [la.to_firestore() for la in leg_airspaces],
         "analyzed_at": datetime.utcnow().isoformat(),
     }
+
+
+# ============ Altitude Override Models ============
+
+
+class LegAltitudeOverride(BaseModel):
+    """Override altitude for a single leg."""
+    from_seq: int
+    to_seq: int
+    planned_altitude_ft: int
+
+
+class AnalysisRequest(BaseModel):
+    """Request body for analysis with altitude overrides."""
+    legs: list[LegAltitudeOverride]
+
+
+class RouteAltitudeUpdate(BaseModel):
+    """Request body for saving altitude changes."""
+    legs: list[LegAltitudeOverride]
+
+
+@router.post("/{route_id}/analysis")
+async def analyze_route_with_overrides(
+    route_id: str,
+    request: AnalysisRequest,
+    user_id: str = Depends(get_current_user_or_demo),
+    route_repo: RouteRepository = Depends(get_route_repo),
+    wp_repo: WaypointRepository = Depends(get_waypoint_repo),
+    airspace_svc: AirspaceQueryService = Depends(get_airspace_query),
+) -> dict:
+    """Perform airspace analysis with custom altitude overrides.
+
+    This allows analyzing the route at different altitudes without
+    saving the changes to the database.
+    """
+    route = await route_repo.get(user_id, route_id)
+    if route is None:
+        raise HTTPException(status_code=404, detail="Route not found")
+
+    # Resolve waypoint IDs to coordinates
+    wp_ids = [ref.waypoint_id for ref in route.waypoints]
+    wp_map = await wp_repo.get_by_ids(user_id, wp_ids)
+
+    # Build tuples for analyze_route: (name, lat, lon) indexed by sequence_order
+    waypoint_tuples: list[tuple[str, float, float]] = []
+    for ref in sorted(route.waypoints, key=lambda r: r.sequence_order):
+        wp = wp_map.get(ref.waypoint_id)
+        if wp is None:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Waypoint {ref.waypoint_id} not found",
+            )
+        waypoint_tuples.append((wp.name, wp.latitude, wp.longitude))
+
+    # Build leg tuples from request overrides
+    leg_tuples = [
+        (leg.from_seq, leg.to_seq, leg.planned_altitude_ft)
+        for leg in request.legs
+    ]
+
+    # Run synchronous SpatiaLite query in thread pool
+    try:
+        leg_airspaces = await asyncio.to_thread(
+            airspace_svc.analyze_route, waypoint_tuples, leg_tuples
+        )
+    except SpatiaLiteNotReadyError:
+        return {
+            "route_id": route_id,
+            "legs": [],
+            "analyzed_at": datetime.utcnow().isoformat(),
+        }
+
+    return {
+        "route_id": route_id,
+        "legs": [la.to_firestore() for la in leg_airspaces],
+        "analyzed_at": datetime.utcnow().isoformat(),
+    }
+
+
+@router.patch("/{route_id}/altitudes")
+async def update_route_altitudes(
+    route_id: str,
+    request: RouteAltitudeUpdate,
+    user_id: str = Depends(get_current_user_or_demo),
+    route_repo: RouteRepository = Depends(get_route_repo),
+) -> dict:
+    """Update the planned altitudes for route legs.
+
+    This saves the altitude changes to Firestore.
+    """
+    route = await route_repo.get(user_id, route_id)
+    if route is None:
+        raise HTTPException(status_code=404, detail="Route not found")
+
+    # Build a map of altitude overrides by (from_seq, to_seq)
+    override_map = {
+        (leg.from_seq, leg.to_seq): leg.planned_altitude_ft
+        for leg in request.legs
+    }
+
+    # Update route legs with new altitudes
+    updated_legs = []
+    for leg in route.legs:
+        key = (leg.from_seq, leg.to_seq)
+        if key in override_map:
+            updated_legs.append(RouteLeg(
+                from_seq=leg.from_seq,
+                to_seq=leg.to_seq,
+                planned_altitude_ft=override_map[key],
+            ))
+        else:
+            updated_legs.append(leg)
+
+    # Update route with new legs
+    route.legs = updated_legs
+    route.updated_at = datetime.utcnow()
+
+    # Save to Firestore
+    await route_repo.update(user_id, route_id, route)
+
+    return {"status": "ok", "updated_legs": len(request.legs)}

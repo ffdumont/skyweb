@@ -126,6 +126,7 @@ export default function AirspacesTab() {
   const loadAirspaceAnalysis = useDossierStore((s) => s.loadAirspaceAnalysis);
   const toggleAirspace = useDossierStore((s) => s.toggleAirspace);
   const toggleAllAirspaces = useDossierStore((s) => s.toggleAllAirspaces);
+  const isRouteModified = useDossierStore((s) => s.isRouteModified);
 
   // Cesium refs
   const containerRef = useRef<HTMLDivElement>(null);
@@ -134,12 +135,17 @@ export default function AirspacesTab() {
   const routeDataSourceRef = useRef<CustomDataSource | null>(null);
   const [isViewerReady, setIsViewerReady] = useState(false);
 
-  // Load analysis when tab opens (don't retry on error)
+  // Load analysis when tab opens or when altitudes were modified
+  // If analysis is null (invalidated by altitude change), reload with current altitudes
   useEffect(() => {
-    if (currentRouteId && !airspaceAnalysis && !airspaceLoading && !airspaceError) {
-      loadAirspaceAnalysis(currentRouteId);
+    if (currentRouteId && !airspaceLoading && !airspaceError) {
+      if (!airspaceAnalysis) {
+        // Analysis is null - load with current altitudes if route was modified
+        console.log("[AirspacesTab] Reloading analysis, isRouteModified:", isRouteModified);
+        loadAirspaceAnalysis(currentRouteId, isRouteModified);
+      }
     }
-  }, [currentRouteId, airspaceAnalysis, airspaceLoading, airspaceError, loadAirspaceAnalysis]);
+  }, [currentRouteId, airspaceAnalysis, airspaceLoading, airspaceError, loadAirspaceAnalysis, isRouteModified]);
 
   // Flatten all unique route_airspaces
   const allAirspaces = useMemo(() => {
@@ -526,11 +532,6 @@ export default function AirspacesTab() {
                     const exceptionInfo = getExceptionInfo(as);
                     const isException = exceptionInfo !== null;
                     const isClassA = !isException && isTmaClassA(as);
-
-                    // Debug: Log R zones to check identifier format
-                    if (as.airspace_type === "R") {
-                      console.log("[AirspacesTab] R zone:", as.identifier, "normalized:", normalizeIdentifier(as.identifier), "isException:", isException);
-                    }
 
                     // Determine background and text colors
                     const bgColor = isException ? "#e8e8e8" : (isClassA ? "#ffe0e0" : undefined);

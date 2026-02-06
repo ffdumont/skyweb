@@ -2,13 +2,11 @@
 
 import { useDossierStore } from "../../stores/dossierStore";
 import StepUpload from "./StepUpload";
-import StepReviewRoute from "./StepReviewRoute";
 import StepDossierInfo from "./StepDossierInfo";
 
 const STEPS = [
   { num: 1, label: "Import" },
-  { num: 2, label: "Route" },
-  { num: 3, label: "Dossier" },
+  { num: 2, label: "Dossier" },
 ] as const;
 
 export default function CreateDossierWizard() {
@@ -87,8 +85,7 @@ export default function CreateDossierWizard() {
       {/* Step content */}
       <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
         {step === 1 && <StepUpload />}
-        {step === 2 && <StepReviewRoute />}
-        {step === 3 && <StepDossierInfo />}
+        {step === 2 && <StepDossierInfo />}
       </div>
     </div>
   );

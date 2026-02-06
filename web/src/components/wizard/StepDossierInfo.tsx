@@ -1,4 +1,4 @@
-/** Wizard step 3: Fill dossier metadata (name, aircraft, departure date). */
+/** Wizard step 2: Fill dossier metadata (name, aircraft, departure date). */
 
 import { useEffect, useState } from "react";
 import { useDossierStore } from "../../stores/dossierStore";
@@ -14,7 +14,7 @@ export default function StepDossierInfo() {
   const setDossierName = useDossierStore((s) => s.setDossierName);
   const setAircraftId = useDossierStore((s) => s.setAircraftId);
   const setDepartureDateTime = useDossierStore((s) => s.setDepartureDateTime);
-  const goBack = useDossierStore((s) => s.goBackToReview);
+  const goBack = useDossierStore((s) => s.goBackToUpload);
   const create = useDossierStore((s) => s.createDossier);
 
   const [aircraft, setAircraft] = useState<AircraftSummary[]>([]);

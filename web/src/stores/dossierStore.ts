@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { DossierSummary, SectionCompletion, WaypointData, SegmentData, GroundPoint } from "../data/mockDossier";
 import type { CoordinatePoint, RouteAirspaceAnalysis, SimulationResponse, UploadRouteResponse } from "../api/types";
 import * as api from "../api/client";
-import { computeSegments } from "../utils/segments";
+import { computeSegments, recalculateIntermediates } from "../utils/segments";
 
 export type TabId =
   | "summary"
@@ -19,7 +19,7 @@ export type TabId =
 export type ViewMode = "list" | "wizard" | "dossier";
 
 interface WizardState {
-  step: 1 | 2 | 3;
+  step: 1 | 2;
   uploadedRoute: UploadRouteResponse | null;
   groundProfile: GroundPoint[] | null;
   computedSegments: SegmentData[] | null;
@@ -95,9 +95,7 @@ interface DossierState {
   cancelWizard: () => void;
   uploadKml: (file: File) => Promise<void>;
   loadDemoRoute: () => Promise<void>;
-  validateRoute: () => void;
   goBackToUpload: () => void;
-  goBackToReview: () => void;
   setDossierName: (name: string) => void;
   setAircraftId: (id: string | null) => void;
   setDepartureDateTime: (dt: string) => void;
@@ -110,7 +108,7 @@ interface DossierState {
   setCompletion: (section: string, status: SectionCompletion) => void;
 
   // Airspace actions
-  loadAirspaceAnalysis: (routeId: string) => Promise<void>;
+  loadAirspaceAnalysis: (routeId: string, useCurrentAltitudes?: boolean) => Promise<void>;
   toggleAirspace: (key: string) => void;
   toggleAllAirspaces: (selected: boolean) => void;
 
@@ -120,6 +118,13 @@ interface DossierState {
   setCurrentWeatherModel: (modelId: string) => void;
   deleteWeatherSimulation: (simulationId: string) => void;
   clearWeatherSimulations: () => void;
+
+  // Route altitude editing
+  isRouteModified: boolean;
+  updateWaypointAltitude: (waypointName: string, altitudeFt: number) => void;
+  recalculateRouteProfile: () => void;
+  saveRouteAltitudes: () => Promise<void>;
+  resetRouteModified: () => void;
 }
 
 export const useDossierStore = create<DossierState>((set, get) => ({
@@ -140,6 +145,9 @@ export const useDossierStore = create<DossierState>((set, get) => ({
   weatherSimulations: [],
   currentWeatherSimulationId: null,
   currentWeatherModelId: "arome",
+
+  // Route modification state
+  isRouteModified: false,
 
   startWizard: () =>
     set({ viewMode: "wizard", wizard: { ...initialWizard } }),
@@ -213,14 +221,8 @@ export const useDossierStore = create<DossierState>((set, get) => ({
     }
   },
 
-  validateRoute: () =>
-    set((s) => ({ wizard: { ...s.wizard, step: 3 } })),
-
   goBackToUpload: () =>
     set((s) => ({ wizard: { ...s.wizard, step: 1 } })),
-
-  goBackToReview: () =>
-    set((s) => ({ wizard: { ...s.wizard, step: 2 } })),
 
   setDossierName: (name) =>
     set((s) => ({ wizard: { ...s.wizard, dossierName: name } })),
@@ -289,6 +291,7 @@ export const useDossierStore = create<DossierState>((set, get) => ({
       airspaceSelection: {},
       airspaceLoading: false,
       airspaceError: null,
+      isRouteModified: false,
     });
 
     // Load route data if routeId is provided
@@ -333,6 +336,7 @@ export const useDossierStore = create<DossierState>((set, get) => ({
       airspaceSelection: {},
       airspaceLoading: false,
       airspaceError: null,
+      isRouteModified: false,
     }),
 
   setTab: (tab) => set({ activeTab: tab }),
@@ -349,14 +353,27 @@ export const useDossierStore = create<DossierState>((set, get) => ({
     }),
 
   // Airspace actions
-  loadAirspaceAnalysis: async (routeId: string) => {
-    const { airspaceAnalysis } = get();
-    // Don't reload if already loaded for this route
-    if (airspaceAnalysis?.route_id === routeId) return;
+  loadAirspaceAnalysis: async (routeId: string, useCurrentAltitudes = false) => {
+    const { airspaceAnalysis, routeData, isRouteModified } = get();
+
+    // Don't reload if already loaded for this route AND altitudes haven't changed
+    if (airspaceAnalysis?.route_id === routeId && !useCurrentAltitudes && !isRouteModified) return;
 
     set({ airspaceLoading: true, airspaceError: null });
     try {
-      const analysis = await api.getRouteAnalysis(routeId);
+      let analysis: RouteAirspaceAnalysis;
+
+      // If route has been modified locally, use the modified altitudes
+      if ((useCurrentAltitudes || isRouteModified) && routeData?.segments) {
+        const legs = routeData.segments.map((seg, i) => ({
+          from_seq: i + 1,
+          to_seq: i + 2,
+          planned_altitude_ft: seg.altitude_ft,
+        }));
+        analysis = await api.getRouteAnalysisWithAltitudes(routeId, legs);
+      } else {
+        analysis = await api.getRouteAnalysis(routeId);
+      }
 
       // Build initial selection: all route_airspaces selected
       const selection: Record<string, boolean> = {};
@@ -429,4 +446,83 @@ export const useDossierStore = create<DossierState>((set, get) => ({
 
   clearWeatherSimulations: () =>
     set({ weatherSimulations: [], currentWeatherSimulationId: null }),
+
+  // Route altitude editing
+  updateWaypointAltitude: (waypointName: string, altitudeFt: number) => {
+    const { routeData } = get();
+    if (!routeData) return;
+
+    // Find the segment that ends at this waypoint
+    const segmentIndex = routeData.segments.findIndex((seg) => seg.to === waypointName);
+    if (segmentIndex < 0) return;
+
+    // Update the waypoint altitude
+    const updatedWaypoints = routeData.waypoints.map((wp) =>
+      wp.name === waypointName ? { ...wp, altitude_ft: altitudeFt } : wp
+    );
+
+    // Update the segment altitude directly (no automatic recalculation)
+    const updatedSegments = routeData.segments.map((seg, i) =>
+      i === segmentIndex ? { ...seg, altitude_ft: altitudeFt } : seg
+    );
+
+    console.log("[dossierStore] Altitude changed for", waypointName, "to", altitudeFt);
+    set({
+      routeData: {
+        ...routeData,
+        waypoints: updatedWaypoints,
+        segments: updatedSegments,
+      },
+      // Invalidate airspace analysis since altitude changed
+      airspaceAnalysis: null,
+      airspaceSelection: {},
+      isRouteModified: true,
+    });
+  },
+
+  recalculateRouteProfile: () => {
+    const { routeData } = get();
+    if (!routeData) return;
+
+    // Recalculate intermediate waypoints (CLIMB/DESC) based on current altitudes
+    const updatedWaypoints = recalculateIntermediates(routeData.waypoints);
+
+    // Recompute segments from updated waypoints
+    const coords = updatedWaypoints.map((wp) => ({
+      name: wp.name,
+      lat: wp.lat,
+      lon: wp.lon,
+      altitude_ft: wp.altitude_ft,
+      is_intermediate: wp.is_intermediate ?? false,
+    }));
+    const updatedSegments = computeSegments(coords);
+
+    console.log("[dossierStore] Profile recalculated");
+    set({
+      routeData: {
+        ...routeData,
+        waypoints: updatedWaypoints,
+        segments: updatedSegments,
+      },
+      airspaceAnalysis: null,
+      airspaceSelection: {},
+    });
+  },
+
+  saveRouteAltitudes: async () => {
+    const { currentRouteId, routeData } = get();
+    if (!currentRouteId || !routeData) return;
+
+    // Build legs from segments for the API
+    const legs = routeData.segments.map((seg, i) => ({
+      from_seq: i + 1,
+      to_seq: i + 2,
+      planned_altitude_ft: seg.altitude_ft,
+    }));
+
+    await api.updateRouteAltitudes(currentRouteId, legs);
+    set({ isRouteModified: false });
+  },
+
+  resetRouteModified: () => set({ isRouteModified: false }),
 }));
