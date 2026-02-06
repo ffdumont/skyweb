@@ -19,6 +19,7 @@ export default function DossierList() {
   const openDossier = useDossierStore((s) => s.openDossier);
   const deleteDossier = useDossierStore((s) => s.deleteDossier);
   const startWizard = useDossierStore((s) => s.startWizard);
+  const viewMode = useDossierStore((s) => s.viewMode);
   const demoMode = useAuthStore((s) => s.demoMode);
   const [dossiers, setDossiers] = useState<DossierWithRouteId[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,9 +49,12 @@ export default function DossierList() {
       .finally(() => setLoading(false));
   }, [demoMode]);
 
+  // Refresh list when component shows (viewMode = list) or demoMode changes
   useEffect(() => {
-    loadDossiers();
-  }, [loadDossiers]);
+    if (viewMode === "list") {
+      loadDossiers();
+    }
+  }, [loadDossiers, viewMode]);
 
   const handleDelete = async (e: React.MouseEvent, dossierId: string) => {
     e.stopPropagation(); // Don't trigger row click

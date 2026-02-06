@@ -83,6 +83,7 @@ interface DossierState {
   // Airspace analysis state
   airspaceAnalysis: RouteAirspaceAnalysis | null;
   airspaceSelection: Record<string, boolean>; // key: "{identifier}_{partie_id}"
+  acknowledgedRedZones: Record<string, boolean>; // key: "{identifier}_{partie_id}" for red zones user acknowledged
   airspaceLoading: boolean;
   airspaceError: string | null;
 
@@ -111,6 +112,8 @@ interface DossierState {
   loadAirspaceAnalysis: (routeId: string, useCurrentAltitudes?: boolean) => Promise<void>;
   toggleAirspace: (key: string) => void;
   toggleAllAirspaces: (selected: boolean) => void;
+  toggleAcknowledgeRedZone: (key: string) => void;
+  recalculateAirspaceStatus: () => void;
 
   // Weather simulation actions
   addWeatherSimulation: (simulation: SimulationResponse) => void;
@@ -138,6 +141,7 @@ export const useDossierStore = create<DossierState>((set, get) => ({
   // Airspace state
   airspaceAnalysis: null,
   airspaceSelection: {},
+  acknowledgedRedZones: {},
   airspaceLoading: false,
   airspaceError: null,
 
@@ -289,6 +293,7 @@ export const useDossierStore = create<DossierState>((set, get) => ({
       activeTab: "summary",
       airspaceAnalysis: null,
       airspaceSelection: {},
+      acknowledgedRedZones: {},
       airspaceLoading: false,
       airspaceError: null,
       isRouteModified: false,
@@ -334,6 +339,7 @@ export const useDossierStore = create<DossierState>((set, get) => ({
       activeTab: "summary",
       airspaceAnalysis: null,
       airspaceSelection: {},
+      acknowledgedRedZones: {},
       airspaceLoading: false,
       airspaceError: null,
       isRouteModified: false,
@@ -377,56 +383,23 @@ export const useDossierStore = create<DossierState>((set, get) => ({
 
       // Build initial selection: all route_airspaces selected
       const selection: Record<string, boolean> = {};
-      let hasRedZone = false;
-
-      // Exception zones that are not really restricted (e.g., R 324 VFR transit)
-      const exceptionIds = ["R324", "R 324"];
-      const isException = (id: string) =>
-        exceptionIds.some((ex) => id.toUpperCase().replace(/\s+/g, "").includes(ex.toUpperCase().replace(/\s+/g, "")));
 
       for (const leg of analysis.legs) {
         for (const as of leg.route_airspaces) {
           const key = `${as.identifier}_${as.partie_id}`;
           selection[key] = true;
-
-          // Check for red zones (D, R, P, or TMA class A), excluding exceptions
-          if (!isException(as.identifier)) {
-            if (
-              as.airspace_type === "D" ||
-              as.airspace_type === "R" ||
-              as.airspace_type === "P" ||
-              (as.airspace_type === "TMA" && as.airspace_class === "A")
-            ) {
-              hasRedZone = true;
-            }
-          }
         }
       }
-
-      const { dossier } = get();
-      const airspaceStatus = hasRedZone ? "alert" : "complete";
-
-      // Navigation status combines airspaces and meteo: alert if either is alert
-      const meteoStatus = dossier?.sections.meteo;
-      const navStatus = airspaceStatus === "alert" || meteoStatus === "alert" ? "alert" :
-                        (meteoStatus === "complete" ? "complete" : dossier?.sections.navigation);
 
       set({
         airspaceAnalysis: analysis,
         airspaceSelection: selection,
         airspaceLoading: false,
         airspaceError: null,
-        ...(dossier && {
-          dossier: {
-            ...dossier,
-            sections: {
-              ...dossier.sections,
-              airspaces: airspaceStatus,
-              ...(navStatus && { navigation: navStatus }),
-            },
-          },
-        }),
       });
+
+      // Recalculate status (takes into account acknowledgedRedZones)
+      get().recalculateAirspaceStatus();
     } catch (err) {
       set({
         airspaceLoading: false,
@@ -455,6 +428,66 @@ export const useDossierStore = create<DossierState>((set, get) => ({
       }
       return { airspaceSelection: selection };
     }),
+
+  toggleAcknowledgeRedZone: (key: string) => {
+    const { acknowledgedRedZones } = get();
+    const newAcknowledged = { ...acknowledgedRedZones, [key]: !acknowledgedRedZones[key] };
+    set({ acknowledgedRedZones: newAcknowledged });
+    // Recalculate airspace status after toggle
+    get().recalculateAirspaceStatus();
+  },
+
+  recalculateAirspaceStatus: () => {
+    const { airspaceAnalysis, acknowledgedRedZones, dossier } = get();
+    if (!airspaceAnalysis || !dossier) return;
+
+    // Exception zones that are not really restricted (e.g., R 324 VFR transit)
+    const exceptionIds = ["R324", "R 324"];
+    const isException = (id: string) =>
+      exceptionIds.some((ex) => id.toUpperCase().replace(/\s+/g, "").includes(ex.toUpperCase().replace(/\s+/g, "")));
+
+    let hasUnacknowledgedRedZone = false;
+
+    for (const leg of airspaceAnalysis.legs) {
+      for (const as of leg.route_airspaces) {
+        // Check for red zones (D, R, P, or TMA class A), excluding exceptions
+        if (!isException(as.identifier)) {
+          const isRedZone =
+            as.airspace_type === "D" ||
+            as.airspace_type === "R" ||
+            as.airspace_type === "P" ||
+            (as.airspace_type === "TMA" && as.airspace_class === "A");
+
+          if (isRedZone) {
+            const key = `${as.identifier}_${as.partie_id}`;
+            if (!acknowledgedRedZones[key]) {
+              hasUnacknowledgedRedZone = true;
+              break;
+            }
+          }
+        }
+      }
+      if (hasUnacknowledgedRedZone) break;
+    }
+
+    const airspaceStatus = hasUnacknowledgedRedZone ? "alert" : "complete";
+
+    // Navigation status combines airspaces and meteo: alert if either is alert
+    const meteoStatus = dossier.sections.meteo;
+    const navStatus = airspaceStatus === "alert" || meteoStatus === "alert" ? "alert" :
+                      (meteoStatus === "complete" ? "complete" : dossier.sections.navigation);
+
+    set({
+      dossier: {
+        ...dossier,
+        sections: {
+          ...dossier.sections,
+          airspaces: airspaceStatus,
+          ...(navStatus && { navigation: navStatus }),
+        },
+      },
+    });
+  },
 
   // Weather simulation actions
   addWeatherSimulation: (simulation: SimulationResponse) =>

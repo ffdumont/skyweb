@@ -74,6 +74,17 @@ function isTmaClassA(as: AirspaceIntersection): boolean {
   return as.airspace_type === "TMA" && as.airspace_class === "A";
 }
 
+/** Check if airspace is a "red zone" (D, R, P, or TMA class A) excluding exceptions */
+function isRedZone(as: AirspaceIntersection): boolean {
+  if (isExceptionZone(as)) return false;
+  return (
+    as.airspace_type === "D" ||
+    as.airspace_type === "R" ||
+    as.airspace_type === "P" ||
+    isTmaClassA(as)
+  );
+}
+
 /**
  * Exception zones that should NOT be treated as red/dangerous zones.
  * These zones will have gray display instead of red, and won't trigger
@@ -127,6 +138,8 @@ export default function AirspacesTab() {
   const toggleAirspace = useDossierStore((s) => s.toggleAirspace);
   const toggleAllAirspaces = useDossierStore((s) => s.toggleAllAirspaces);
   const isRouteModified = useDossierStore((s) => s.isRouteModified);
+  const acknowledgedRedZones = useDossierStore((s) => s.acknowledgedRedZones);
+  const toggleAcknowledgeRedZone = useDossierStore((s) => s.toggleAcknowledgeRedZone);
 
   // Cesium refs
   const containerRef = useRef<HTMLDivElement>(null);
@@ -523,6 +536,7 @@ export default function AirspacesTab() {
                     <th style={{ ...thStyle, textAlign: "right" }}>Plancher</th>
                     <th style={{ ...thStyle, textAlign: "right" }}>Plafond</th>
                     <th style={{ ...thStyle, textAlign: "right" }}>Fréquence</th>
+                    <th style={{ ...thStyle, textAlign: "center" }} title="Acquitter les zones à risque">Acq.</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -532,10 +546,12 @@ export default function AirspacesTab() {
                     const exceptionInfo = getExceptionInfo(as);
                     const isException = exceptionInfo !== null;
                     const isClassA = !isException && isTmaClassA(as);
+                    const isRed = isRedZone(as);
+                    const isAcknowledged = acknowledgedRedZones[key] ?? false;
 
                     // Determine background and text colors
-                    const bgColor = isException ? "#e8e8e8" : (isClassA ? "#ffe0e0" : undefined);
-                    const textColor = isClassA ? "#c00" : undefined;
+                    const bgColor = isException ? "#e8e8e8" : (isClassA ? "#ffe0e0" : (isRed ? "#fff0e0" : undefined));
+                    const textColor = isClassA ? "#c00" : (isRed ? "#c00" : undefined);
                     const badgeColor = isException ? "#888" : (isClassA ? "#c00" : (TYPE_COLORS[as.airspace_type] ?? "#888"));
 
                     // Get frequency: use custom from exception, or from database
@@ -575,6 +591,17 @@ export default function AirspacesTab() {
                         </td>
                         <td style={{ ...tdStyle, textAlign: "right", fontFamily: "monospace", color: frequencyColor, fontWeight: isClassA ? 600 : undefined }}>
                           {displayFrequency}
+                        </td>
+                        <td style={{ ...tdStyle, textAlign: "center" }}>
+                          {isRed ? (
+                            <input
+                              type="checkbox"
+                              checked={isAcknowledged}
+                              onChange={() => toggleAcknowledgeRedZone(key)}
+                              title="Acquitter cette zone"
+                              style={{ accentColor: "#2e7d32" }}
+                            />
+                          ) : null}
                         </td>
                       </tr>
                     );
