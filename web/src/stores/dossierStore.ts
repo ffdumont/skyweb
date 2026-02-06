@@ -444,9 +444,12 @@ export const useDossierStore = create<DossierState>((set, get) => ({
         return { acknowledgedRedZones: newAcknowledged };
       }
 
-      const exceptionIds = ["R324", "R 324"];
-      const isException = (id: string) =>
-        exceptionIds.some((ex) => id.toUpperCase().replace(/\s+/g, "").includes(ex.toUpperCase().replace(/\s+/g, "")));
+      // Exception zones - match with or without "R" prefix
+      const exceptionIds = ["324"];
+      const isException = (id: string) => {
+        const normalized = id.toUpperCase().replace(/\s+/g, "").replace(/^R/, "");
+        return exceptionIds.some((ex) => normalized === ex || normalized.includes(ex));
+      };
 
       let hasUnacknowledgedRedZone = false;
       const redZonesFound: string[] = [];
@@ -499,9 +502,12 @@ export const useDossierStore = create<DossierState>((set, get) => ({
     set((s) => {
       if (!s.airspaceAnalysis || !s.dossier) return s;
 
-      const exceptionIds = ["R324", "R 324"];
-      const isException = (id: string) =>
-        exceptionIds.some((ex) => id.toUpperCase().replace(/\s+/g, "").includes(ex.toUpperCase().replace(/\s+/g, "")));
+      // Exception zones - match with or without "R" prefix
+      const exceptionIds = ["324"];
+      const isException = (id: string) => {
+        const normalized = id.toUpperCase().replace(/\s+/g, "").replace(/^R/, "");
+        return exceptionIds.some((ex) => normalized === ex || normalized.includes(ex));
+      };
 
       let hasUnacknowledgedRedZone = false;
 

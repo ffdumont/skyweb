@@ -97,12 +97,12 @@ interface ZoneException {
 }
 
 const ZONE_EXCEPTIONS: ZoneException[] = [
-  { identifier: "R 324", customFrequency: "120.075", callsign: "VEILLE PARIS" },
+  { identifier: "324", customFrequency: "120.075", callsign: "VEILLE PARIS" },
 ];
 
-/** Normalize identifier for comparison (remove spaces, uppercase) */
+/** Normalize identifier for comparison (remove spaces, uppercase, remove R prefix) */
 function normalizeIdentifier(id: string): string {
-  return id.toUpperCase().replace(/\s+/g, "");
+  return id.toUpperCase().replace(/\s+/g, "").replace(/^R/, "");
 }
 
 /** Check if an airspace is in the exception list */
