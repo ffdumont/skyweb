@@ -118,8 +118,10 @@ def _parse_notam_coordinates(raw: str) -> tuple[float, float, int] | None:
         lat_str, lat_dir, lon_str, lon_dir, radius_str = match.groups()
         lat = int(lat_str[:2]) + int(lat_str[2:4]) / 60
         lon = int(lon_str[:3]) + int(lon_str[3:5]) / 60
-        if lat_dir == 'S': lat = -lat
-        if lon_dir == 'W': lon = -lon
+        if lat_dir == 'S':
+            lat = -lat
+        if lon_dir == 'W':
+            lon = -lon
         return (lat, lon, int(radius_str))
 
     # Try PSN format (6 digits for lat with seconds, 7 digits for lon with seconds)
@@ -130,8 +132,10 @@ def _parse_notam_coordinates(raw: str) -> tuple[float, float, int] | None:
         # DDMMSS format
         lat = int(lat_str[:2]) + int(lat_str[2:4]) / 60 + int(lat_str[4:6]) / 3600
         lon = int(lon_str[:3]) + int(lon_str[3:5]) / 60 + int(lon_str[5:7]) / 3600
-        if lat_dir == 'S': lat = -lat
-        if lon_dir == 'W': lon = -lon
+        if lat_dir == 'S':
+            lat = -lat
+        if lon_dir == 'W':
+            lon = -lon
         # No radius in PSN format, default to 5 NM
         return (lat, lon, 5)
 

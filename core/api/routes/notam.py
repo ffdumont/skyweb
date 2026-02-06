@@ -20,7 +20,7 @@ from core.api.deps import (
 )
 from core.persistence.repositories.route_repo import RouteRepository
 from core.persistence.repositories.waypoint_repo import WaypointRepository
-from core.services.notam_service import NotamService, RouteWaypoint, RouteNotamResult, NotamData
+from core.services.notam_service import NotamService, RouteWaypoint, NotamData
 from core.services.briefing_service import BriefingService
 
 logger = logging.getLogger(__name__)

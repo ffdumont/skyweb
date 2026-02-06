@@ -704,7 +704,6 @@ async def get_route_alternates(
     if len(route_coords) < 2:
         return AlternatesResponse(route_id=route_id, primary=[], secondary=[])
 
-    dep_coord = route_coords[0]
     arr_coord = route_coords[-1]
 
     # Get DEP and ARR ICAO codes to exclude them
