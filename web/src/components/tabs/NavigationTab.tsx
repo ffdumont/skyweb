@@ -30,6 +30,10 @@ const SERVICE_TYPE_PRIORITY: Record<string, number> = {
   "Information": 0, "Approche": 1, "Tour": 2, "Auto-information": 5,
 };
 
+// Generic Paris Info frequency that should be deprioritized in favor of regional frequencies
+// VFR pilots should contact PARIS NORD or PARIS SUD Info, not the generic PARIS Info
+const GENERIC_PARIS_FREQUENCY = "129.625";
+
 /**
  * Exception zones that should NOT be treated as red/dangerous zones.
  * Custom frequencies can be specified here for zones missing from database.
@@ -441,9 +445,11 @@ function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: stri
       if (seenCallsigns.has(service.callsign)) continue;
 
       // Find the first VHF frequency (118-137 MHz range), excluding 121.5 (emergency)
+      // Also skip the generic PARIS Info frequency - we prefer PARIS NORD/SUD
       const vhfFreq = (service.frequencies || []).find((f) => {
         const mhz = parseFloat(f.frequency_mhz);
-        return mhz >= 118 && mhz <= 137 && Math.abs(mhz - 121.5) > 0.01;
+        const isGenericParis = f.frequency_mhz === GENERIC_PARIS_FREQUENCY;
+        return mhz >= 118 && mhz <= 137 && Math.abs(mhz - 121.5) > 0.01 && !isGenericParis;
       });
 
       if (vhfFreq) {
