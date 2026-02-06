@@ -66,7 +66,6 @@ export default function MeteoTab() {
     return now.toISOString().slice(0, 16);
   });
   const [cruiseSpeedKt, setCruiseSpeedKt] = useState(100);
-  const [cruiseAltitudeFt, setCruiseAltitudeFt] = useState(3500);
 
   // Load available models on mount
   useEffect(() => {
@@ -84,9 +83,9 @@ export default function MeteoTab() {
         name: wp.name,
         lat: wp.lat,
         lon: wp.lon,
-        altitude_ft: wp.altitude_ft || cruiseAltitudeFt,
+        altitude_ft: wp.altitude_ft || 3500, // Default fallback
       }));
-  }, [routeData, cruiseAltitudeFt]);
+  }, [routeData]);
 
   // Current simulation (mapped from shared store)
   const currentSimulation = useMemo((): Simulation | null => {
@@ -139,7 +138,7 @@ export default function MeteoTab() {
         waypoints,
         departure_datetime: new Date(departureDatetime).toISOString(),
         cruise_speed_kt: cruiseSpeedKt,
-        cruise_altitude_ft: cruiseAltitudeFt,
+        cruise_altitude_ft: 3500, // Default fallback (per-waypoint altitudes are in waypoints)
         models: Array.from(selectedModels),
       });
 
@@ -288,24 +287,6 @@ export default function MeteoTab() {
               }}
             />
             <span style={{ fontSize: 13, color: "#666" }}>kt</span>
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <label style={{ fontSize: 13, fontWeight: 500 }}>Altitude:</label>
-            <input
-              type="number"
-              value={cruiseAltitudeFt}
-              onChange={(e) => setCruiseAltitudeFt(Number(e.target.value))}
-              step={500}
-              style={{
-                width: 80,
-                padding: "6px 10px",
-                border: "1px solid #ccc",
-                borderRadius: 4,
-                fontSize: 13,
-              }}
-            />
-            <span style={{ fontSize: 13, color: "#666" }}>ft</span>
           </div>
 
           <button
