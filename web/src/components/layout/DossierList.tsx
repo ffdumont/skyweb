@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useDossierStore } from "../../stores/dossierStore";
+import { useAuthStore } from "../../stores/authStore";
 import * as api from "../../api/client";
 import type { DossierSummary } from "../../data/mockDossier";
 
@@ -18,10 +19,16 @@ export default function DossierList() {
   const openDossier = useDossierStore((s) => s.openDossier);
   const deleteDossier = useDossierStore((s) => s.deleteDossier);
   const startWizard = useDossierStore((s) => s.startWizard);
+  const demoMode = useAuthStore((s) => s.demoMode);
   const [dossiers, setDossiers] = useState<DossierWithRouteId[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadDossiers = useCallback(() => {
+    if (demoMode) {
+      setDossiers([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     api.listDossiers()
       .then((list) => {
@@ -39,7 +46,7 @@ export default function DossierList() {
       })
       .catch(() => setDossiers([]))
       .finally(() => setLoading(false));
-  }, []);
+  }, [demoMode]);
 
   useEffect(() => {
     loadDossiers();
@@ -75,6 +82,11 @@ export default function DossierList() {
 
       {loading ? (
         <div style={{ color: "#888", padding: 24 }}>Chargement...</div>
+      ) : demoMode ? (
+        <div style={{ color: "#888", padding: 24, textAlign: "center" }}>
+          En mode démo, les dossiers ne sont pas sauvegardés.<br />
+          Cliquez sur "+ Nouveau dossier" pour tester l'import d'une route.
+        </div>
       ) : dossiers.length === 0 ? (
         <div style={{ color: "#888", padding: 24, textAlign: "center" }}>
           Aucun dossier. Cliquez sur "+ Nouveau dossier" pour commencer.
