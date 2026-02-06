@@ -101,6 +101,7 @@ export default function NavigationTab() {
     const entries: NavLogEntry[] = [];
     let cumulativeDistNm = 0;
     let cumulativeTimeMin = 0;
+    let prevAltitudeFt: number | null = null;
     const departureMinutes = parseTimeToMinutes(params.departureTimeUtc);
 
     for (let i = 0; i < routeData.segments.length; i++) {
@@ -130,6 +131,7 @@ export default function NavigationTab() {
         rcDeg,
         distanceNm: seg.distance_nm,
         altitudeFt: seg.altitude_ft,
+        prevAltitudeFt,
         eteMin,
         etaUtc: formatMinutesToTime(etaMinutes),
         cumulativeDistNm,
@@ -138,6 +140,8 @@ export default function NavigationTab() {
         frequencies,
         hasWindData: windData !== null,
       });
+
+      prevAltitudeFt = seg.altitude_ft;
     }
 
     return entries;
@@ -249,7 +253,23 @@ export default function NavigationTab() {
                   {entry.distanceNm.toFixed(1)} nm
                 </td>
                 <td style={{ ...tdStyle, textAlign: "center", fontFamily: "monospace" }}>
-                  {formatAltitude(entry.altitudeFt)}
+                  {(() => {
+                    const { text, arrow } = formatAltitude(entry.altitudeFt, entry.prevAltitudeFt);
+                    return (
+                      <>
+                        {arrow && (
+                          <span style={{
+                            color: arrow === "↗" ? "#2e7d32" : "#1565c0",
+                            marginRight: 4,
+                            fontSize: 14,
+                          }}>
+                            {arrow}
+                          </span>
+                        )}
+                        {text}
+                      </>
+                    );
+                  })()}
                 </td>
                 <td style={{ ...tdStyle, textAlign: "right", fontFamily: "monospace" }}>
                   {formatEte(entry.eteMin)}
@@ -317,6 +337,7 @@ interface NavLogEntry {
   rcDeg: number | null;
   distanceNm: number;
   altitudeFt: number;
+  prevAltitudeFt: number | null; // Previous segment altitude for arrow display
   eteMin: number;
   etaUtc: string;
   cumulativeDistNm: number;
@@ -358,11 +379,18 @@ function formatDuration(minutes: number): string {
   return `${h}h${String(m).padStart(2, "0")}`;
 }
 
-function formatAltitude(ft: number): string {
-  if (ft >= 3000) {
-    return `FL${Math.round(ft / 100).toString().padStart(3, "0")}`;
+function formatAltitude(ft: number, prevFt: number | null): { text: string; arrow: string | null } {
+  const text = ft >= 3000
+    ? `FL${Math.round(ft / 100).toString().padStart(3, "0")}`
+    : `${ft}ft`;
+
+  // Determine arrow based on altitude change
+  let arrow: string | null = null;
+  if (prevFt !== null && ft !== prevFt) {
+    arrow = ft > prevFt ? "↗" : "↘";
   }
-  return `${ft}ft`;
+
+  return { text, arrow };
 }
 
 function findLegAirspaces(
