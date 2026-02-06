@@ -59,14 +59,19 @@ export default function DossierList() {
   const handleDelete = async (e: React.MouseEvent, dossierId: string) => {
     e.stopPropagation(); // Don't trigger row click
     if (!confirm("Supprimer ce dossier ?")) return;
+
+    // Optimistic update: remove from UI immediately
+    setDossiers((prev) => prev.filter((d) => d.id !== dossierId));
+
     try {
       await deleteDossier(dossierId);
+      console.log("[DossierList] Dossier deleted successfully:", dossierId);
     } catch (err) {
-      console.error("Failed to delete dossier:", err);
+      console.error("[DossierList] Failed to delete dossier:", err);
       alert("Erreur lors de la suppression du dossier");
+      // Reload list to restore state if delete failed
+      loadDossiers();
     }
-    // Always refresh list after delete attempt
-    loadDossiers();
   };
 
   return (
