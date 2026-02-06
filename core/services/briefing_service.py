@@ -38,8 +38,17 @@ def _clean_text(text: str) -> str:
     """Remove BOM and other problematic characters from text."""
     if not text:
         return ""
-    # Remove BOM (Byte Order Mark) and other zero-width characters
-    return text.replace('\ufeff', '').replace('\ufffe', '').strip()
+    # Remove BOM (Byte Order Mark) - handle both string and bytes representation
+    # The BOM can appear as the character itself or as escaped sequence
+    cleaned = text
+    # Remove UTF-8 BOM character
+    if cleaned.startswith('\ufeff'):
+        cleaned = cleaned[1:]
+    # Remove any BOM anywhere in the text
+    cleaned = cleaned.replace('\ufeff', '').replace('\ufffe', '')
+    # Also handle UTF-16 BOMs
+    cleaned = cleaned.replace('\xff\xfe', '').replace('\xfe\xff', '')
+    return cleaned.strip()
 
 
 def format_notams_for_briefing(
@@ -62,29 +71,33 @@ def format_notams_for_briefing(
     if departure_notams:
         lines.append(f"=== NOTAMS DEPART ({departure_icao}) ===")
         for n in departure_notams:
+            notam_id = _clean_text(n.get('id', 'N/A'))
             msg = _clean_text(n.get('message', n.get('raw', '')))
-            lines.append(f"[{n.get('id', 'N/A')}] {msg}")
+            lines.append(f"[{notam_id}] {msg}")
         lines.append("")
 
     if destination_notams:
         lines.append(f"=== NOTAMS DESTINATION ({destination_icao}) ===")
         for n in destination_notams:
+            notam_id = _clean_text(n.get('id', 'N/A'))
             msg = _clean_text(n.get('message', n.get('raw', '')))
-            lines.append(f"[{n.get('id', 'N/A')}] {msg}")
+            lines.append(f"[{notam_id}] {msg}")
         lines.append("")
 
     if fir_notams:
         lines.append("=== NOTAMS FIR ===")
         for n in fir_notams:
+            notam_id = _clean_text(n.get('id', 'N/A'))
             msg = _clean_text(n.get('message', n.get('raw', '')))
-            lines.append(f"[{n.get('id', 'N/A')}] {msg}")
+            lines.append(f"[{notam_id}] {msg}")
         lines.append("")
 
     if enroute_notams:
         lines.append("=== NOTAMS EN-ROUTE ===")
         for n in enroute_notams:
+            notam_id = _clean_text(n.get('id', 'N/A'))
             msg = _clean_text(n.get('message', n.get('raw', '')))
-            lines.append(f"[{n.get('id', 'N/A')}] {msg}")
+            lines.append(f"[{notam_id}] {msg}")
         lines.append("")
 
     if not any([departure_notams, destination_notams, fir_notams, enroute_notams]):
