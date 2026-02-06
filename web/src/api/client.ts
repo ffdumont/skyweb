@@ -96,7 +96,7 @@ export async function getRoute(routeId: string): Promise<UploadRouteResponse> {
 }
 
 export async function deleteDossier(dossierId: string): Promise<void> {
-  await fetch(`/api/dossiers/${dossierId}`, { method: "DELETE" });
+  await apiFetch(`/api/dossiers/${dossierId}`, { method: "DELETE" });
 }
 
 export async function getRouteAnalysis(
