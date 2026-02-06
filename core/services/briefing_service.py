@@ -133,10 +133,18 @@ class BriefingService:
             enroute_notams: NOTAMs along the route
             flight_date: Optional flight date for context
 
+        Note: All string inputs are cleaned to remove BOM characters.
+
         Returns:
             Human-readable briefing in French
         """
         client = self._get_client()
+
+        # Clean all string inputs to remove BOM characters
+        departure_icao = _clean_text(departure_icao) or ""
+        destination_icao = _clean_text(destination_icao) or ""
+        if flight_date:
+            flight_date = _clean_text(flight_date)
 
         # Format NOTAMs for input
         notam_text = format_notams_for_briefing(
@@ -156,15 +164,19 @@ class BriefingService:
 
         logger.info(f"Generating briefing for {departure_icao}->{destination_icao} with {total_notams} NOTAMs")
 
+        # Final BOM cleanup on all text that will be sent to Claude
+        clean_system = _clean_text(BRIEFING_SYSTEM_PROMPT)
+        clean_content = _clean_text(f"Génère un briefing NOTAM en français pour ce vol:\n\n{notam_text}")
+
         try:
             message = client.messages.create(
                 model="claude-sonnet-4-20250514",
                 max_tokens=1500,
-                system=BRIEFING_SYSTEM_PROMPT,
+                system=clean_system,
                 messages=[
                     {
                         "role": "user",
-                        "content": f"Génère un briefing NOTAM en français pour ce vol:\n\n{notam_text}"
+                        "content": clean_content
                     }
                 ]
             )
