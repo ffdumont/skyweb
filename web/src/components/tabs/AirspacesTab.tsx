@@ -547,7 +547,8 @@ export default function AirspacesTab() {
                     const isException = exceptionInfo !== null;
                     const isClassA = !isException && isTmaClassA(as);
                     const isRed = isRedZone(as);
-                    const isAcknowledged = acknowledgedRedZones[key] ?? false;
+                    // Use identifier only for acknowledgment (not partie_id)
+                    const isAcknowledged = acknowledgedRedZones[as.identifier] ?? false;
 
                     // Determine background and text colors
                     const bgColor = isException ? "#e8e8e8" : (isClassA ? "#ffe0e0" : (isRed ? "#fff0e0" : undefined));
@@ -597,7 +598,7 @@ export default function AirspacesTab() {
                             <input
                               type="checkbox"
                               checked={isAcknowledged}
-                              onChange={() => toggleAcknowledgeRedZone(key)}
+                              onChange={() => toggleAcknowledgeRedZone(as.identifier)}
                               title="Acquitter cette zone"
                               style={{ accentColor: "#2e7d32" }}
                             />

@@ -429,9 +429,10 @@ export const useDossierStore = create<DossierState>((set, get) => ({
       return { airspaceSelection: selection };
     }),
 
-  toggleAcknowledgeRedZone: (key: string) =>
+  toggleAcknowledgeRedZone: (identifier: string) =>
     set((s) => {
-      const newAcknowledged = { ...s.acknowledgedRedZones, [key]: !s.acknowledgedRedZones[key] };
+      // Use only identifier (not partie_id) so acknowledging once covers all instances
+      const newAcknowledged = { ...s.acknowledgedRedZones, [identifier]: !s.acknowledgedRedZones[identifier] };
 
       // Recalculate status inline with new acknowledged state
       if (!s.airspaceAnalysis || !s.dossier) {
@@ -454,8 +455,8 @@ export const useDossierStore = create<DossierState>((set, get) => ({
               (as.airspace_type === "TMA" && as.airspace_class === "A");
 
             if (isRedZone) {
-              const zoneKey = `${as.identifier}_${as.partie_id}`;
-              if (!newAcknowledged[zoneKey]) {
+              // Check by identifier only (not partie_id)
+              if (!newAcknowledged[as.identifier]) {
                 hasUnacknowledgedRedZone = true;
                 break;
               }
@@ -503,8 +504,8 @@ export const useDossierStore = create<DossierState>((set, get) => ({
               (as.airspace_type === "TMA" && as.airspace_class === "A");
 
             if (isRedZone) {
-              const key = `${as.identifier}_${as.partie_id}`;
-              if (!s.acknowledgedRedZones[key]) {
+              // Check by identifier only (not partie_id)
+              if (!s.acknowledgedRedZones[as.identifier]) {
                 hasUnacknowledgedRedZone = true;
                 break;
               }
