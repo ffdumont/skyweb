@@ -10,6 +10,7 @@
  */
 
 import { useEffect, useState, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
 import { useDossierStore } from "../../stores/dossierStore";
 import * as api from "../../api/client";
 import type { NotamData, RouteNotamResponse } from "../../api/types";
@@ -603,6 +604,7 @@ function BriefingPanel({ briefing, loading, error, onClose }: BriefingPanelProps
 
       {briefing && !loading && (
         <div
+          className="briefing-markdown"
           style={{
             background: "#f8f9fa",
             border: "1px solid #e0e0e0",
@@ -610,10 +612,39 @@ function BriefingPanel({ briefing, loading, error, onClose }: BriefingPanelProps
             padding: 20,
             lineHeight: 1.7,
             fontSize: 14,
-            whiteSpace: "pre-wrap",
           }}
         >
-          {briefing}
+          <ReactMarkdown
+            components={{
+              h2: ({ children }) => (
+                <h2 style={{ fontSize: 16, fontWeight: 600, marginTop: 16, marginBottom: 8, color: "#1976d2", borderBottom: "1px solid #e0e0e0", paddingBottom: 4 }}>
+                  {children}
+                </h2>
+              ),
+              h3: ({ children }) => (
+                <h3 style={{ fontSize: 14, fontWeight: 600, marginTop: 12, marginBottom: 6, color: "#333" }}>
+                  {children}
+                </h3>
+              ),
+              p: ({ children }) => (
+                <p style={{ margin: "8px 0" }}>{children}</p>
+              ),
+              ul: ({ children }) => (
+                <ul style={{ margin: "8px 0", paddingLeft: 20 }}>{children}</ul>
+              ),
+              li: ({ children }) => (
+                <li style={{ marginBottom: 4 }}>{children}</li>
+              ),
+              strong: ({ children }) => (
+                <strong style={{ fontWeight: 600, color: "#1565c0" }}>{children}</strong>
+              ),
+              hr: () => (
+                <hr style={{ border: "none", borderTop: "1px solid #ddd", margin: "12px 0" }} />
+              ),
+            }}
+          >
+            {briefing}
+          </ReactMarkdown>
         </div>
       )}
 
