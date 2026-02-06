@@ -384,11 +384,19 @@ export const useDossierStore = create<DossierState>((set, get) => ({
         }
       }
 
+      const { dossier } = get();
       set({
         airspaceAnalysis: analysis,
         airspaceSelection: selection,
         airspaceLoading: false,
         airspaceError: null,
+        // Mark airspaces section as complete
+        ...(dossier && {
+          dossier: {
+            ...dossier,
+            sections: { ...dossier.sections, airspaces: "complete" },
+          },
+        }),
       });
     } catch (err) {
       set({
@@ -424,6 +432,13 @@ export const useDossierStore = create<DossierState>((set, get) => ({
     set((s) => ({
       weatherSimulations: [simulation, ...s.weatherSimulations],
       currentWeatherSimulationId: simulation.simulation_id,
+      // Mark meteo and navigation sections as complete (nav log uses wind data)
+      ...(s.dossier && {
+        dossier: {
+          ...s.dossier,
+          sections: { ...s.dossier.sections, meteo: "complete", navigation: "complete" },
+        },
+      }),
     })),
 
   setCurrentWeatherSimulation: (simulationId: string | null) =>
