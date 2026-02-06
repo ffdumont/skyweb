@@ -431,11 +431,16 @@ export const useDossierStore = create<DossierState>((set, get) => ({
 
   toggleAcknowledgeRedZone: (identifier: string) =>
     set((s) => {
+      console.log("[toggleAcknowledgeRedZone] Called with identifier:", identifier);
+      console.log("[toggleAcknowledgeRedZone] Current acknowledgedRedZones:", s.acknowledgedRedZones);
+
       // Use only identifier (not partie_id) so acknowledging once covers all instances
       const newAcknowledged = { ...s.acknowledgedRedZones, [identifier]: !s.acknowledgedRedZones[identifier] };
+      console.log("[toggleAcknowledgeRedZone] New acknowledgedRedZones:", newAcknowledged);
 
       // Recalculate status inline with new acknowledged state
       if (!s.airspaceAnalysis || !s.dossier) {
+        console.log("[toggleAcknowledgeRedZone] No airspaceAnalysis or dossier, returning early");
         return { acknowledgedRedZones: newAcknowledged };
       }
 
@@ -444,6 +449,7 @@ export const useDossierStore = create<DossierState>((set, get) => ({
         exceptionIds.some((ex) => id.toUpperCase().replace(/\s+/g, "").includes(ex.toUpperCase().replace(/\s+/g, "")));
 
       let hasUnacknowledgedRedZone = false;
+      const redZonesFound: string[] = [];
 
       for (const leg of s.airspaceAnalysis.legs) {
         for (const as of leg.route_airspaces) {
@@ -455,21 +461,26 @@ export const useDossierStore = create<DossierState>((set, get) => ({
               (as.airspace_type === "TMA" && as.airspace_class === "A");
 
             if (isRedZone) {
+              redZonesFound.push(as.identifier);
               // Check by identifier only (not partie_id)
               if (!newAcknowledged[as.identifier]) {
+                console.log("[toggleAcknowledgeRedZone] Unacknowledged red zone found:", as.identifier);
                 hasUnacknowledgedRedZone = true;
-                break;
               }
             }
           }
         }
-        if (hasUnacknowledgedRedZone) break;
       }
+
+      console.log("[toggleAcknowledgeRedZone] All red zones found:", [...new Set(redZonesFound)]);
+      console.log("[toggleAcknowledgeRedZone] hasUnacknowledgedRedZone:", hasUnacknowledgedRedZone);
 
       const airspaceStatus = hasUnacknowledgedRedZone ? "alert" : "complete";
       const meteoStatus = s.dossier.sections.meteo;
       const navStatus = airspaceStatus === "alert" || meteoStatus === "alert" ? "alert" :
                         (meteoStatus === "complete" ? "complete" : s.dossier.sections.navigation);
+
+      console.log("[toggleAcknowledgeRedZone] Setting airspaceStatus:", airspaceStatus, "navStatus:", navStatus);
 
       return {
         acknowledgedRedZones: newAcknowledged,

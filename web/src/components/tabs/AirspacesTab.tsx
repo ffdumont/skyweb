@@ -598,7 +598,10 @@ export default function AirspacesTab() {
                             <input
                               type="checkbox"
                               checked={isAcknowledged}
-                              onChange={() => toggleAcknowledgeRedZone(as.identifier)}
+                              onChange={() => {
+                                console.log("[AirspacesTab] Clicking acknowledge for:", as.identifier, "isAcknowledged before:", isAcknowledged);
+                                toggleAcknowledgeRedZone(as.identifier);
+                              }}
                               title="Acquitter cette zone"
                               style={{ accentColor: "#2e7d32" }}
                             />
