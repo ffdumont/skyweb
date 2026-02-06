@@ -68,27 +68,6 @@ export default function DossierHeader() {
         >
           {STATUS_LABELS[dossier.status] ?? dossier.status}
         </span>
-        <div style={{ flex: 1 }} />
-        {/* Completion dots */}
-        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          {TABS.filter((t) => t.section).map((t) => {
-            const status = dossier.sections[t.section!] ?? "empty";
-            return (
-              <div
-                key={t.id}
-                title={`${t.label}: ${status}`}
-                onClick={() => setTab(t.id)}
-                style={{
-                  width: 10,
-                  height: 10,
-                  borderRadius: "50%",
-                  background: COMPLETION_COLORS[status],
-                  cursor: "pointer",
-                }}
-              />
-            );
-          })}
-        </div>
       </div>
 
       {/* Tab bar */}
