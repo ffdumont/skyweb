@@ -444,8 +444,16 @@ function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: stri
       const priority = SERVICE_TYPE_PRIORITY[service.service_type];
       if (priority === undefined) continue; // Skip irrelevant services
 
+      // For SIV, use the airspace identifier (e.g., "PARIS NORD SIV" -> "PARIS NORD")
+      // This preserves sector information that would be lost with just service.callsign
+      let callsign = service.callsign;
+      if (airspace.airspace_type === "SIV") {
+        // Remove " SIV" suffix from identifier to get the sector name
+        callsign = airspace.identifier.replace(/\s+SIV$/i, "").trim();
+      }
+
       // Skip if we already have a frequency for this callsign
-      if (seenCallsigns.has(service.callsign)) continue;
+      if (seenCallsigns.has(callsign)) continue;
 
       // Find the first VHF frequency (118-137 MHz range), excluding 121.5 (emergency)
       const vhfFreq = (service.frequencies || []).find((f) => {
@@ -454,9 +462,9 @@ function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: stri
       });
 
       if (vhfFreq) {
-        seenCallsigns.add(service.callsign);
+        seenCallsigns.add(callsign);
         frequencies.push({
-          callsign: service.callsign,
+          callsign,
           frequency: vhfFreq.frequency_mhz,
           priority,
           isClassA,
