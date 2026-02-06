@@ -153,9 +153,18 @@ def _determine_firs(waypoints: list[RouteWaypoint]) -> list[str]:
     return list(firs)
 
 
+def _clean_bom(text: str | None) -> str | None:
+    """Remove BOM and other problematic characters from text."""
+    if text is None:
+        return None
+    if not text:
+        return ""
+    return text.replace('\ufeff', '').replace('\ufffe', '')
+
+
 def _parse_notam(data: dict) -> NotamData:
     """Parse raw API response into NotamData."""
-    raw = data.get("all", "")
+    raw = _clean_bom(data.get("all", ""))
 
     # Extract location from A) line
     location_match = re.search(r"A\)\s*([A-Z]{4})", raw)
@@ -183,14 +192,14 @@ def _parse_notam(data: dict) -> NotamData:
     lat, lon, radius = coords if coords else (None, None, None)
 
     return NotamData(
-        id=data.get("id", ""),
+        id=_clean_bom(data.get("id", "")) or "",
         raw=raw,
-        q_code=data.get("Qcode"),
-        area=data.get("Area"),
-        sub_area=data.get("SubArea"),
-        subject=data.get("Subject"),
-        modifier=data.get("Modifier"),
-        message=data.get("message"),
+        q_code=_clean_bom(data.get("Qcode")),
+        area=_clean_bom(data.get("Area")),
+        sub_area=_clean_bom(data.get("SubArea")),
+        subject=_clean_bom(data.get("Subject")),
+        modifier=_clean_bom(data.get("Modifier")),
+        message=_clean_bom(data.get("message")),
         location=location,
         fir=fir,
         start_date=start_date,
