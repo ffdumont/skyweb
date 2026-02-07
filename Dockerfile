@@ -14,8 +14,8 @@ COPY pyproject.toml .
 COPY core/ ./core/
 COPY data/ ./data/
 
-# Install Python dependencies (api + gcp + llm extras)
-RUN pip install --no-cache-dir ".[api,gcp,llm]"
+# Install Python dependencies (api + gcp + llm + sia extras)
+RUN pip install --no-cache-dir ".[api,gcp,llm,sia]"
 
 # Cloud Run uses PORT env variable
 ENV PORT=8000
