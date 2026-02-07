@@ -11,7 +11,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useDossierStore } from "../../stores/dossierStore";
 import type { SegmentData } from "../../data/mockDossier";
-import type { LegAirspaces, SimulationResponse } from "../../api/types";
+import type { AerodromeInfo, LegAirspaces, SimulationResponse } from "../../api/types";
 import { formatHdg } from "../../utils/units";
 
 interface NavigationParams {
@@ -68,6 +68,10 @@ export default function NavigationTab() {
   const currentRouteId = useDossierStore((s) => s.currentRouteId);
   const loadAirspaceAnalysis = useDossierStore((s) => s.loadAirspaceAnalysis);
 
+  // Aerodrome info for departure/destination frequencies
+  const departureAerodrome = useDossierStore((s) => s.departureAerodrome);
+  const destinationAerodrome = useDossierStore((s) => s.destinationAerodrome);
+
   // Weather simulation from shared store
   const weatherSimulations = useDossierStore((s) => s.weatherSimulations);
   const currentWeatherSimulationId = useDossierStore((s) => s.currentWeatherSimulationId);
@@ -103,11 +107,24 @@ export default function NavigationTab() {
     let cumulativeTimeMin = 0;
     let prevAltitudeFt: number | null = null;
     const departureMinutes = parseTimeToMinutes(params.departureTimeUtc);
+    const totalSegments = routeData.segments.length;
 
     for (let i = 0; i < routeData.segments.length; i++) {
       const seg = routeData.segments[i];
       const legAirspaces = findLegAirspaces(airspaceAnalysis?.legs, seg, i);
-      const frequencies = extractFrequencies(legAirspaces);
+      const airspaceFrequencies = extractFrequencies(legAirspaces);
+
+      // Add aerodrome frequencies for first (departure) and last (destination) segments
+      const aerodromeFrequencies: { callsign: string; frequency: string; isClassA: boolean }[] = [];
+      if (i === 0 && departureAerodrome) {
+        aerodromeFrequencies.push(...extractAerodromeFrequencies(departureAerodrome));
+      }
+      if (i === totalSegments - 1 && destinationAerodrome) {
+        aerodromeFrequencies.push(...extractAerodromeFrequencies(destinationAerodrome));
+      }
+
+      // Combine frequencies: aerodrome frequencies first, then airspace frequencies
+      const frequencies = [...aerodromeFrequencies, ...airspaceFrequencies];
 
       // Get wind data for drift calculation if simulation available
       const windData = getWindDataForSegment(selectedSimulation, currentWeatherModelId, i);
@@ -145,7 +162,7 @@ export default function NavigationTab() {
     }
 
     return entries;
-  }, [routeData, airspaceAnalysis, params, selectedSimulation, currentWeatherModelId]);
+  }, [routeData, airspaceAnalysis, params, selectedSimulation, currentWeatherModelId, departureAerodrome, destinationAerodrome]);
 
   // Totals
   const totals = useMemo(() => {
@@ -505,6 +522,56 @@ function extractFrequencies(legAirspaces: LegAirspaces | null): { callsign: stri
   frequencies.sort((a, b) => a.priority - b.priority);
 
   return frequencies.map(({ callsign, frequency, isClassA }) => ({ callsign, frequency, isClassA }));
+}
+
+/**
+ * Extract frequencies from aerodrome info for the nav log.
+ * Prioritizes TWR, AFIS, A/A (auto-information) services.
+ */
+function extractAerodromeFrequencies(aerodrome: AerodromeInfo): { callsign: string; frequency: string; isClassA: boolean }[] {
+  const frequencies: { callsign: string; frequency: string; priority: number }[] = [];
+
+  // Priority for aerodrome services (lower = higher priority)
+  const AD_SERVICE_PRIORITY: Record<string, number> = {
+    "TWR": 0, "Tour": 0,
+    "AFIS": 1,
+    "A/A": 2, "Auto-information": 2,
+    "ATIS": 3,
+    "GND": 4, "Sol": 4,
+    "APP": 5, "Approche": 5,
+  };
+
+  for (const service of aerodrome.services || []) {
+    const priority = AD_SERVICE_PRIORITY[service.service_type];
+    if (priority === undefined) continue; // Skip irrelevant services
+
+    // Use callsign if available, otherwise use aerodrome ICAO
+    const callsign = service.callsign || `${aerodrome.icao} ${service.service_type}`;
+
+    // Find the first VHF frequency
+    const vhfFreq = (service.frequencies || []).find((f) => {
+      const mhz = f.frequency_mhz;
+      return mhz >= 118 && mhz <= 137 && Math.abs(mhz - 121.5) > 0.01;
+    });
+
+    if (vhfFreq) {
+      frequencies.push({
+        callsign,
+        frequency: vhfFreq.frequency_mhz.toFixed(3),
+        priority,
+      });
+    }
+  }
+
+  // Sort by priority and take the most relevant frequencies
+  frequencies.sort((a, b) => a.priority - b.priority);
+
+  // Return up to 2 most relevant frequencies, never flag as class A
+  return frequencies.slice(0, 2).map(({ callsign, frequency }) => ({
+    callsign,
+    frequency,
+    isClassA: false,
+  }));
 }
 
 function getWindDataForSegment(

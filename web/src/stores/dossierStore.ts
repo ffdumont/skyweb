@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import type { DossierSummary, SectionCompletion, WaypointData, SegmentData, GroundPoint } from "../data/mockDossier";
-import type { CoordinatePoint, RouteAirspaceAnalysis, SimulationResponse, UploadRouteResponse } from "../api/types";
+import type { AerodromeInfo, CoordinatePoint, RouteAirspaceAnalysis, SimulationResponse, UploadRouteResponse } from "../api/types";
 import * as api from "../api/client";
 import { computeSegments, recalculateIntermediates } from "../utils/segments";
 
@@ -92,6 +92,10 @@ interface DossierState {
   currentWeatherSimulationId: string | null;
   currentWeatherModelId: string;
 
+  // Aerodrome info for departure/destination (for frequencies in nav log)
+  departureAerodrome: AerodromeInfo | null;
+  destinationAerodrome: AerodromeInfo | null;
+
   startWizard: () => void;
   cancelWizard: () => void;
   uploadKml: (file: File) => Promise<void>;
@@ -128,6 +132,9 @@ interface DossierState {
   recalculateRouteProfile: () => void;
   saveRouteAltitudes: () => Promise<void>;
   resetRouteModified: () => void;
+
+  // Aerodrome info loading
+  loadAerodromeInfo: (departureIcao: string, destinationIcao: string) => Promise<void>;
 }
 
 export const useDossierStore = create<DossierState>((set, get) => ({
@@ -149,6 +156,10 @@ export const useDossierStore = create<DossierState>((set, get) => ({
   weatherSimulations: [],
   currentWeatherSimulationId: null,
   currentWeatherModelId: "arome",
+
+  // Aerodrome info
+  departureAerodrome: null,
+  destinationAerodrome: null,
 
   // Route modification state
   isRouteModified: false,
@@ -261,6 +272,17 @@ export const useDossierStore = create<DossierState>((set, get) => ({
         sections: result.sections as Record<string, SectionCompletion>,
       };
 
+      // Extract ICAO codes from departure/destination waypoints
+      const waypoints = wizard.computedWaypoints!;
+      const depWp = waypoints[0];
+      const destWp = waypoints[waypoints.length - 1];
+      const extractIcao = (name: string): string | null => {
+        const match = name.match(/^([A-Z]{4})\b/);
+        return match ? match[1] : null;
+      };
+      const depIcao = extractIcao(depWp?.name ?? "");
+      const destIcao = extractIcao(destWp?.name ?? "");
+
       set({
         viewMode: "dossier",
         dossier,
@@ -272,7 +294,14 @@ export const useDossierStore = create<DossierState>((set, get) => ({
         currentRouteId: wizard.uploadedRoute.id,
         activeTab: "summary",
         wizard: { ...initialWizard },
+        departureAerodrome: null,
+        destinationAerodrome: null,
       });
+
+      // Load aerodrome info asynchronously
+      if (depIcao || destIcao) {
+        get().loadAerodromeInfo(depIcao ?? "", destIcao ?? "");
+      }
     } catch (err) {
       set((s) => ({
         wizard: {
@@ -297,6 +326,8 @@ export const useDossierStore = create<DossierState>((set, get) => ({
       airspaceLoading: false,
       airspaceError: null,
       isRouteModified: false,
+      departureAerodrome: null,
+      destinationAerodrome: null,
     });
 
     // Load route data if routeId is provided
@@ -315,6 +346,19 @@ export const useDossierStore = create<DossierState>((set, get) => ({
             groundProfile: groundProfile as GroundPoint[] | null,
           },
         });
+
+        // Extract ICAO codes from departure/destination waypoints and load aerodrome info
+        const depWp = waypoints[0];
+        const destWp = waypoints[waypoints.length - 1];
+        const extractIcao = (name: string): string | null => {
+          const match = name.match(/^([A-Z]{4})\b/);
+          return match ? match[1] : null;
+        };
+        const depIcao = extractIcao(depWp?.name ?? "");
+        const destIcao = extractIcao(destWp?.name ?? "");
+        if (depIcao || destIcao) {
+          get().loadAerodromeInfo(depIcao ?? "", destIcao ?? "");
+        }
       } catch {
         // Route loading failed, keep routeData null
       }
@@ -343,6 +387,8 @@ export const useDossierStore = create<DossierState>((set, get) => ({
       airspaceLoading: false,
       airspaceError: null,
       isRouteModified: false,
+      departureAerodrome: null,
+      destinationAerodrome: null,
     }),
 
   setTab: (tab) => set({ activeTab: tab }),
@@ -662,4 +708,17 @@ export const useDossierStore = create<DossierState>((set, get) => ({
   },
 
   resetRouteModified: () => set({ isRouteModified: false }),
+
+  loadAerodromeInfo: async (departureIcao: string, destinationIcao: string) => {
+    // Load both aerodromes in parallel
+    const [depResult, destResult] = await Promise.allSettled([
+      departureIcao ? api.getAerodrome(departureIcao) : Promise.resolve(null),
+      destinationIcao ? api.getAerodrome(destinationIcao) : Promise.resolve(null),
+    ]);
+
+    set({
+      departureAerodrome: depResult.status === "fulfilled" ? depResult.value : null,
+      destinationAerodrome: destResult.status === "fulfilled" ? destResult.value : null,
+    });
+  },
 }));
