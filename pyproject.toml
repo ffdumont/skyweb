@@ -31,6 +31,11 @@ gcp = [
 llm = [
     "anthropic>=0.30",
 ]
+sia = [
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "tqdm>=4.66",
+]
 
 [build-system]
 requires = ["hatchling"]
