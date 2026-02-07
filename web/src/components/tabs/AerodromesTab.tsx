@@ -524,6 +524,25 @@ function AlternatePreviewDetail({ preview, onConfirm, onClose }: AlternatePrevie
           Suggéré
         </span>
         <div style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+          {info?.vac_url && (
+            <a
+              href={info.vac_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                padding: "8px 16px",
+                fontSize: 13,
+                fontWeight: 500,
+                background: "#1976d2",
+                color: "#fff",
+                border: "none",
+                borderRadius: 6,
+                textDecoration: "none",
+              }}
+            >
+              📄 VAC PDF
+            </a>
+          )}
           <button
             onClick={onConfirm}
             style={{
@@ -750,6 +769,28 @@ function AerodromeDetail({ entry, onSave, saving }: AerodromeDetailProps) {
         >
           {roleInfo.label}
         </span>
+        {info?.vac_url && (
+          <a
+            href={info.vac_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              marginLeft: "auto",
+              padding: "6px 12px",
+              fontSize: 12,
+              fontWeight: 500,
+              background: "#1976d2",
+              color: "#fff",
+              borderRadius: 6,
+              textDecoration: "none",
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+            }}
+          >
+            📄 VAC PDF
+          </a>
+        )}
       </div>
 
       {/* SIA Data Section */}

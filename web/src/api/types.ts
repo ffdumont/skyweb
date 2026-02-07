@@ -253,6 +253,7 @@ export interface AerodromeInfo {
   fuel_remarks: string | null;
   runways: Runway[];
   services: AerodromeService[];
+  vac_url: string | null;
 }
 
 // ============ Aerodrome Notes Types ============
