@@ -290,7 +290,6 @@ def _parse_airac_from_text(text: str) -> AIRACCycle:
 
     cycle_num = int(cycle_match.group(1))
     cycle_year = int(cycle_match.group(2))
-    full_year = 2000 + cycle_year
     cycle_number = f"{cycle_num:02d}/{cycle_year:02d}"
 
     # Find validity dates
