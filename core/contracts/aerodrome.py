@@ -86,3 +86,4 @@ class AerodromeInfo(FirestoreModel):
     services: list[AerodromeService] = Field(default_factory=list)
 
     airac_cycle: str | None = None
+    vac_url: str | None = Field(default=None, description="URL to VAC PDF on SIA website")
