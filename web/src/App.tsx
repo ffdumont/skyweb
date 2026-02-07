@@ -14,6 +14,7 @@ import AirspacesTab from "./components/tabs/AirspacesTab";
 import NotamTab from "./components/tabs/NotamTab";
 import MeteoTab from "./components/tabs/MeteoTab";
 import NavigationTab from "./components/tabs/NavigationTab";
+import DocumentsTab from "./components/tabs/DocumentsTab";
 import PlaceholderTab from "./components/tabs/PlaceholderTab";
 
 function TabContent() {
@@ -65,20 +66,7 @@ function TabContent() {
         />
       );
     case "documents":
-      return (
-        <PlaceholderTab
-          title="Documents"
-          description="Génération et aperçu des documents de vol prêts à imprimer."
-          items={[
-            "Journal de navigation (lognav)",
-            "Fiche préparation 4120",
-            "Export FPL Garmin",
-            "Checklist documents et éléments à emporter",
-            "Export PDF / impression",
-          ]}
-          status="planned"
-        />
-      );
+      return <DocumentsTab />;
   }
 }
 
