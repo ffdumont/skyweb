@@ -33,8 +33,8 @@ VAC_URL_TEMPLATE = "https://www.sia.aviation-civile.gouv.fr/media/dvd/{cycle}/At
 REQUEST_TIMEOUT = 15
 DEFAULT_USER_AGENT = "SkyWeb-VACDownloader/1.0"
 
-# AIRAC reference point: January 2, 2025 is the start of cycle 01/25
-AIRAC_REFERENCE_DATE = datetime(2025, 1, 2)
+# AIRAC reference point: December 26, 2024 aligns with cycle 01/26 starting Jan 22, 2026
+AIRAC_REFERENCE_DATE = datetime(2024, 12, 26)
 AIRAC_CYCLE_DAYS = 28
 
 # Month abbreviations in French (as used by SIA)
