@@ -266,26 +266,39 @@ class AerodromeQueryService:
         ]
 
     def _get_services_new(self, conn: sqlite3.Connection, short_icao: str) -> list[AerodromeService]:
-        """Get services using new aerodrome_service schema (no frequencies table)."""
+        """Get services using new aerodrome_service schema with frequencies from Frequence table."""
+        # Query services with frequencies via ServiceRef join
         rows = conn.execute(
             """
-            SELECT id, service_type, callsign, hours_code, hours_text
-            FROM aerodrome_service
-            WHERE icao = ?
+            SELECT s.pk, s.service_type, s.callsign, s.hours_code, s.hours_text,
+                   f.Frequence, f.Espacement
+            FROM aerodrome_service s
+            LEFT JOIN Frequence f ON f.ServiceRef = s.pk
+            WHERE s.icao = ?
             """,
             (short_icao,),
         ).fetchall()
 
-        return [
-            AerodromeService(
-                service_type=r["service_type"] or "",
-                callsign=r["callsign"] or "",
-                hours_code=r["hours_code"],
-                hours_text=r["hours_text"],
-                frequencies=[],  # New schema doesn't have frequencies table yet
-            )
-            for r in rows
-        ]
+        # Group frequencies by service
+        services: dict[int, AerodromeService] = {}
+        for r in rows:
+            s_pk = r["pk"]
+            if s_pk not in services:
+                services[s_pk] = AerodromeService(
+                    service_type=r["service_type"] or "",
+                    callsign=r["callsign"] or "",
+                    hours_code=r["hours_code"],
+                    hours_text=r["hours_text"],
+                    frequencies=[],
+                )
+            if r["Frequence"]:
+                services[s_pk].frequencies.append(
+                    AerodromeFrequency(
+                        frequency_mhz=r["Frequence"],
+                        spacing=r["Espacement"],
+                    )
+                )
+        return list(services.values())
 
     # ------------------------------------------------------------------
     # Private - Legacy schema helpers
