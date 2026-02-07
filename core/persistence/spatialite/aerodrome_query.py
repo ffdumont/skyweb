@@ -267,13 +267,14 @@ class AerodromeQueryService:
 
     def _get_services_new(self, conn: sqlite3.Connection, short_icao: str) -> list[AerodromeService]:
         """Get services using new aerodrome_service schema with frequencies from Frequence table."""
-        # Query services with frequencies via ServiceRef join
+        # Query services with frequencies via Service_pk join
+        # Note: aerodrome_service uses 'id' column, Frequence uses 'Service_pk'
         rows = conn.execute(
             """
-            SELECT s.pk, s.service_type, s.callsign, s.hours_code, s.hours_text,
+            SELECT s.id, s.service_type, s.callsign, s.hours_code, s.hours_text,
                    f.Frequence, f.Espacement
             FROM aerodrome_service s
-            LEFT JOIN Frequence f ON f.ServiceRef = s.pk
+            LEFT JOIN Frequence f ON f.Service_pk = s.id
             WHERE s.icao = ?
             """,
             (short_icao,),
@@ -282,7 +283,7 @@ class AerodromeQueryService:
         # Group frequencies by service
         services: dict[int, AerodromeService] = {}
         for r in rows:
-            s_pk = r["pk"]
+            s_pk = r["id"]
             if s_pk not in services:
                 services[s_pk] = AerodromeService(
                     service_type=r["service_type"] or "",
