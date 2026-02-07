@@ -688,7 +688,6 @@ function AerodromeDetail({ entry, onSave, saving }: AerodromeDetailProps) {
 
   // Local form state for VAC notes
   const [formData, setFormData] = useState<SaveAerodromeNotesRequest>({
-    runway_in_use: notes?.runway_in_use ?? "",
     circuit_direction: notes?.circuit_direction ?? {},
     pattern_altitude_ft: notes?.pattern_altitude_ft ?? undefined,
     entry_point: notes?.entry_point ?? "",
@@ -701,7 +700,6 @@ function AerodromeDetail({ entry, onSave, saving }: AerodromeDetailProps) {
 
   useEffect(() => {
     setFormData({
-      runway_in_use: notes?.runway_in_use ?? "",
       circuit_direction: notes?.circuit_direction ?? {},
       pattern_altitude_ft: notes?.pattern_altitude_ft ?? undefined,
       entry_point: notes?.entry_point ?? "",
@@ -860,21 +858,6 @@ function AerodromeDetail({ entry, onSave, saving }: AerodromeDetailProps) {
       <SectionHeader title="INFORMATIONS VAC" badge="Éditable" badgeColor="#1976d2" />
 
       <div style={{ background: "#f9f9f9", borderRadius: 8, padding: 16, marginBottom: 20 }}>
-        <FormField label="Piste en service">
-          <select
-            value={formData.runway_in_use || ""}
-            onChange={(e) => updateField("runway_in_use", e.target.value || null)}
-            style={selectStyle}
-          >
-            <option value="">Non renseigné</option>
-            {runwayDesignators.map((rwy) => (
-              <option key={rwy} value={rwy}>
-                {rwy}
-              </option>
-            ))}
-          </select>
-        </FormField>
-
         {runwayDesignators.length > 0 && (
           <FormField label="Sens du circuit">
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
